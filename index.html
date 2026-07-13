@@ -314,7 +314,7 @@
   <!-- ==================== 左侧导航 ==================== -->
   <nav class="sidebar" id="sidebar">
     <div class="sidebar-logo">
-      <h2>📋 工作助手 <span style="font-size:10px;color:#666;">v11</span></h2>
+      <h2>📋 工作助手 <span style="font-size:10px;color:#666;">v12</span></h2>
       <span>珠海科技学院</span>
     </div>
 
@@ -408,12 +408,12 @@
           </div>
           <!-- 标签管理 -->
           <div id="tag-manager" style="display:none;margin-top:10px;padding:10px;background:#f9fafb;border-radius:8px;border:1px solid var(--border);">
-            <p style="font-size:12px;font-weight:600;margin-bottom:6px;">🏷️ 自定义标签</p>
-            <div id="custom-tags-list" style="margin-bottom:8px;"></div>
+            <p style="font-size:12px;font-weight:600;margin-bottom:8px;">🏷️ 管理标签（点击名称可编辑，点 × 删除）</p>
+            <div id="all-tags-list" style="margin-bottom:10px;"></div>
             <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center;">
               <input class="input" type="text" id="new-tag-name" placeholder="标签名" style="max-width:100px;">
               <input class="input" type="color" id="new-tag-color" value="#6366f1" style="max-width:40px;padding:2px;">
-              <button class="btn small primary" onclick="addCustomTag()">＋ 新增标签</button>
+              <button class="btn small primary" onclick="addNewTag()">＋ 新增</button>
             </div>
           </div>
         </div>
@@ -893,7 +893,7 @@
 
     // ========== 🗓️ 日历（大格子月视图）==========
     let calYear, calMonth, calSelectedDate;
-    const defaultTags = [
+    const TAG_DEFAULTS = [
       { id: "red", name: "紧急", color: "#ef4444", bg: "#fee2e2", cssClass: "cal-tag-red" },
       { id: "blue", name: "日常", color: "#2563eb", bg: "#dbeafe", cssClass: "cal-tag-blue" },
       { id: "orange", name: "生活", color: "#ea580c", bg: "#ffedd5", cssClass: "cal-tag-orange" },
@@ -902,20 +902,29 @@
     ];
 
     function getAllTags() {
-      const raw = localStorage.getItem("work-assistant-custom-tags");
-      const custom = raw ? JSON.parse(raw) : [];
-      return [...defaultTags, ...custom];
+      const raw = localStorage.getItem("work-assistant-all-tags");
+      if (!raw) {
+        localStorage.setItem("work-assistant-all-tags", JSON.stringify(TAG_DEFAULTS));
+        return TAG_DEFAULTS.map(t => ({...t}));
+      }
+      return JSON.parse(raw);
     }
 
-    function saveCustomTags(tags) { localStorage.setItem("work-assistant-custom-tags", JSON.stringify(tags)); }
-
-    function getCustomTags() {
-      const raw = localStorage.getItem("work-assistant-custom-tags");
-      return raw ? JSON.parse(raw) : [];
+    function saveAllTags(tags) {
+      localStorage.setItem("work-assistant-all-tags", JSON.stringify(tags));
+      // 同步更新动态样式
+      tags.forEach(t => {
+        if (t.cssClass && !document.getElementById("style-" + t.cssClass)) {
+          const style = document.createElement("style");
+          style.id = "style-" + t.cssClass;
+          style.textContent = `.${t.cssClass} { background: ${t.bg}; color: ${t.color}; }`;
+          document.head.appendChild(style);
+        }
+      });
     }
 
     function getTagById(id) {
-      return getAllTags().find(t => t.id === id) || defaultTags[1];
+      return getAllTags().find(t => t.id === id) || getAllTags()[0];
     }
 
     function getTagCssClass(id) {
@@ -926,71 +935,111 @@
     function renderTagSelector() {
       const select = document.getElementById("cal-task-tag");
       if (!select) return;
-      const tags = getAllTags();
-      select.innerHTML = tags.map(t =>
+      select.innerHTML = getAllTags().map(t =>
         `<option value="${t.id}">${t.name}</option>`
       ).join("");
     }
 
-    function renderCustomTagsList() {
-      const container = document.getElementById("custom-tags-list");
+    function renderAllTagsPanel() {
+      const container = document.getElementById("all-tags-list");
       if (!container) return;
-      const custom = getCustomTags();
-      container.innerHTML = custom.length === 0
-        ? `<span style="font-size:11px;color:var(--text-light);">暂无自定义标签</span>`
-        : custom.map(t => `
-          <span style="display:inline-flex;align-items:center;gap:4px;padding:2px 8px;border-radius:4px;margin:0 4px 4px 0;font-size:11px;background:${t.bg};color:${t.color};">
-            ${t.name}
-            <span style="cursor:pointer;font-weight:bold;" onclick="deleteCustomTag('${t.id}')">×</span>
-          </span>`).join("");
+      const tags = getAllTags();
+      container.innerHTML = tags.map(t => `
+        <div style="display:inline-flex;align-items:center;gap:6px;padding:4px 10px;border-radius:6px;margin:0 6px 6px 0;font-size:12px;background:${t.bg};color:${t.color};border:1px solid ${t.color}33;">
+          <span class="tag-name-display" data-id="${t.id}" style="cursor:pointer;" onclick="editTagName('${t.id}')" title="点击编辑名称">${escapeHtml(t.name)}</span>
+          <input type="color" value="${t.color}" style="width:20px;height:20px;border:none;cursor:pointer;padding:0;" onchange="editTagColor('${t.id}', this.value)" title="改颜色">
+          <span style="cursor:pointer;font-weight:bold;font-size:14px;opacity:0.6;" onclick="deleteTag('${t.id}')" title="删除标签">×</span>
+        </div>`).join("");
     }
 
     function toggleTagManager() {
       const panel = document.getElementById("tag-manager");
       panel.style.display = panel.style.display === "none" ? "block" : "none";
-      if (panel.style.display === "block") renderCustomTagsList();
+      if (panel.style.display === "block") renderAllTagsPanel();
     }
 
-    function addCustomTag() {
+    function editTagName(id) {
+      const tags = getAllTags();
+      const tag = tags.find(t => t.id === id);
+      if (!tag) return;
+      const newName = prompt("修改标签名称：", tag.name);
+      if (newName && newName.trim()) {
+        tag.name = newName.trim();
+        saveAllTags(tags);
+        renderAllTagsPanel();
+        renderTagSelector();
+        renderCalendar(calYear, calMonth);
+      }
+    }
+
+    function editTagColor(id, newColor) {
+      const tags = getAllTags();
+      const tag = tags.find(t => t.id === id);
+      if (!tag) return;
+      const r = parseInt(newColor.slice(1,3), 16);
+      const g = parseInt(newColor.slice(3,5), 16);
+      const b = parseInt(newColor.slice(5,7), 16);
+      tag.color = newColor;
+      tag.bg = `rgba(${r},${g},${b},0.15)`;
+      // 更新CSS
+      let style = document.getElementById("style-" + tag.cssClass);
+      if (!style) {
+        style = document.createElement("style");
+        style.id = "style-" + tag.cssClass;
+        document.head.appendChild(style);
+      }
+      style.textContent = `.${tag.cssClass} { background: ${tag.bg}; color: ${tag.color}; }`;
+      saveAllTags(tags);
+      renderAllTagsPanel();
+      renderCalendar(calYear, calMonth);
+    }
+
+    function addNewTag() {
       const nameEl = document.getElementById("new-tag-name");
       const colorEl = document.getElementById("new-tag-color");
       const name = nameEl.value.trim();
       if (!name) return;
       const color = colorEl.value;
-      const id = "custom_" + Date.now();
-      // 自动生成浅色背景
       const r = parseInt(color.slice(1,3), 16);
       const g = parseInt(color.slice(3,5), 16);
       const b = parseInt(color.slice(5,7), 16);
       const bg = `rgba(${r},${g},${b},0.15)`;
-      // 动态注入CSS class
-      const cssClass = `cal-tag-${id}`;
+      const id = "tag_" + Date.now();
+      const cssClass = "cal-tag-" + id;
+      // 注入CSS
       const style = document.createElement("style");
+      style.id = "style-" + cssClass;
       style.textContent = `.${cssClass} { background: ${bg}; color: ${color}; }`;
       document.head.appendChild(style);
-      const custom = getCustomTags();
-      custom.push({ id, name, color, bg, cssClass });
-      saveCustomTags(custom);
+      const tags = getAllTags();
+      tags.push({ id, name, color, bg, cssClass });
+      saveAllTags(tags);
       nameEl.value = "";
-      renderCustomTagsList();
+      renderAllTagsPanel();
       renderTagSelector();
       renderCalendar(calYear, calMonth);
     }
 
-    function deleteCustomTag(id) {
-      const custom = getCustomTags().filter(t => t.id !== id);
-      saveCustomTags(custom);
-      renderCustomTagsList();
-      renderTagSelector();
-      // 把用了这个标签的事件改成"日常"
+    function deleteTag(id) {
+      const tags = getAllTags();
+      if (tags.length <= 1) { alert("至少保留一个标签"); return; }
+      const tag = tags.find(t => t.id === id);
+      if (!confirm(`确定删除标签「${tag.name}」？使用此标签的任务将自动改为「日常」。`)) return;
+      const newTags = tags.filter(t => t.id !== id);
+      saveAllTags(newTags);
+      // 用了这个标签的事件改成第一个标签
       const events = getCalEvents();
       let changed = false;
+      const fallbackId = newTags[0].id;
       Object.keys(events).forEach(dateStr => {
         events[dateStr].forEach(t => {
-          if (t.tag === id) { t.tag = "blue"; changed = true; }
+          if (t.tag === id) { t.tag = fallbackId; changed = true; }
         });
       });
       if (changed) saveCalEvents(events);
+      renderAllTagsPanel();
+      renderTagSelector();
+      renderCalendar(calYear, calMonth);
     }
     const MAX_EVENTS_PER_CELL = 3; // 每个格子最多显示几条，超出显示"+N条"
 
