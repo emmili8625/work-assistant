@@ -410,7 +410,7 @@
   <!-- ==================== 左侧导航栏 ==================== -->
   <nav class="sidebar" id="sidebar">
     <div class="sidebar-logo">
-      <h2>📋 工作助手</h2>
+      <h2>📋 工作助手 <span style="font-size:10px;color:#666;">v5 ✨</span></h2>
       <span>珠海科技学院</span>
     </div>
     <div class="nav-item active" data-page="dashboard" onclick="switchPage('dashboard')">
@@ -434,6 +434,8 @@
   </nav>
 
   <!-- ==================== 主内容区 ==================== -->
+  <!-- 调试信息区：如果JS出错会在这里显示 -->
+  <div id="debug-info" style="position:fixed;top:0;left:0;right:0;background:#fff3cd;color:#856404;padding:8px 16px;font-size:12px;z-index:9999;display:none;text-align:center;"></div>
   <main class="main">
 
     <!-- ===== 页面1：今日仪表盘 ===== -->
@@ -578,6 +580,7 @@
        ============================================ */
 
     // --- 每日时间表数据 ---
+    // 👇 这里改成你自己的日常安排，格式：{ time: "几点", content: "干什么", done: false }
     const scheduleData = [
       { time: "08:00", content: "到校打卡", done: false },
       { time: "08:30", content: "查看当日邮件和OA通知", done: false },
@@ -587,6 +590,12 @@
       { time: "14:00", content: "下午工作会议/任务执行", done: false },
       { time: "16:00", content: "整理当日工作记录", done: false },
       { time: "17:30", content: "检查明日待办，下班打卡", done: false },
+    ];
+
+    // --- 默认待办（首次使用时显示，用户可在页面上自行增删）---
+    const defaultTodos = [
+      { text: "📞 今晚8点微信开会：培训团建相关", done: false },
+      { text: "👆 点击左侧菜单浏览各个模块", done: false },
     ];
 
     // --- 校园地点数据 ---
@@ -639,7 +648,7 @@
       { cat: "行政", task: "工资条查询", app: "企业微信", note: "绑定学校账号" },
       { cat: "行政", task: "会议室预约", app: "OA-会议管理", note: "提前1天预约" },
       { cat: "行政", task: "图书借阅查询", app: "图书馆微信公众号", note: "可续借" },
-      { cat: "生活", task: "校园卡充值", app: "支付宝-校园生活", note: "搜"珠海科技学院"" },
+      { cat: "生活", task: "校园卡充值", app: "支付宝-校园生活", note: "搜「珠海科技学院」" },
       { cat: "生活", task: "食堂消费", app: "校园卡/微信/支付宝", note: "扫码支付" },
       { cat: "生活", task: "电费充值", app: "企业微信-后勤服务", note: "宿舍电费" },
       { cat: "出行", task: "校车时刻表", app: "企业微信-班车服务", note: "查看实时位置" },
@@ -656,6 +665,11 @@
       const weekdays = ["日","一","二","三","四","五","六"];
       document.getElementById("today-date").textContent =
         `${now.getFullYear()}年${now.getMonth()+1}月${now.getDate()}日 · 星期${weekdays[now.getDay()]} · 📍珠海科技学院`;
+
+      // 首次使用时，写入默认待办
+      if (!localStorage.getItem("work-assistant-todos")) {
+        localStorage.setItem("work-assistant-todos", JSON.stringify(defaultTodos));
+      }
 
       renderTodoList();
       renderTimeline();
@@ -869,8 +883,16 @@
       return div.innerHTML;
     }
 
-    // ========== 启动！ ==========
-    init();
+    // ========== 启动！（加了错误捕获，方便排查问题）==========
+    try {
+      init();
+      console.log('✅ 工作助手启动成功！');
+    } catch (e) {
+      const debug = document.getElementById('debug-info');
+      debug.style.display = 'block';
+      debug.textContent = '⚠️ 出错了：' + e.message + ' （第 ' + (e.lineNumber || '?') + ' 行）';
+      console.error('初始化失败：', e);
+    }
   </script>
 </body>
 </html>
