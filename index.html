@@ -396,6 +396,72 @@
     }
 
     /* --- 打印友好（需要时 Ctrl+P）--- */
+    /* --- 标签切换 --- */
+    .tabs {
+      display: flex;
+      gap: 0;
+      border-bottom: 2px solid var(--border);
+      margin-bottom: 16px;
+    }
+    .tab-btn {
+      padding: 8px 20px;
+      border: none;
+      background: none;
+      font-size: 14px;
+      cursor: pointer;
+      color: var(--text-light);
+      border-bottom: 2px solid transparent;
+      margin-bottom: -2px;
+      transition: all 0.15s;
+    }
+    .tab-btn.active {
+      color: var(--accent);
+      border-bottom-color: var(--accent);
+      font-weight: 600;
+    }
+    .tab-content { display: none; }
+    .tab-content.active { display: block; }
+
+    /* --- 备考进度条 --- */
+    .progress-bar {
+      height: 8px;
+      background: var(--border);
+      border-radius: 4px;
+      margin-top: 6px;
+      overflow: hidden;
+    }
+    .progress-fill {
+      height: 100%;
+      background: var(--accent);
+      border-radius: 4px;
+      transition: width 0.3s;
+    }
+
+    /* --- 倒计时 --- */
+    .countdown-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+      gap: 12px;
+      margin-bottom: 16px;
+    }
+    .countdown-card {
+      background: var(--card-bg);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 16px;
+      text-align: center;
+    }
+    .countdown-num {
+      font-size: 36px;
+      font-weight: 700;
+      color: var(--accent);
+    }
+    .countdown-label {
+      font-size: 13px;
+      color: var(--text-light);
+      margin-top: 2px;
+    }
+
     @media print {
       .sidebar, .menu-toggle { display: none; }
       .main { margin-left: 0; }
@@ -410,7 +476,7 @@
   <!-- ==================== 左侧导航栏 ==================== -->
   <nav class="sidebar" id="sidebar">
     <div class="sidebar-logo">
-      <h2>📋 工作助手 <span style="font-size:10px;color:#666;">v5 ✨</span></h2>
+      <h2>📋 工作助手 <span style="font-size:10px;color:#666;">v6 🚀</span></h2>
       <span>珠海科技学院</span>
     </div>
     <div class="nav-item active" data-page="dashboard" onclick="switchPage('dashboard')">
@@ -430,6 +496,12 @@
     </div>
     <div class="nav-item" data-page="notes" onclick="switchPage('notes')">
       <span class="nav-icon">📝</span> 工作笔记
+    </div>
+    <div class="nav-item" data-page="todos" onclick="switchPage('todos')">
+      <span class="nav-icon">📋</span> 待办事项
+    </div>
+    <div class="nav-item" data-page="study" onclick="switchPage('study')">
+      <span class="nav-icon">📖</span> 学习备考
     </div>
   </nav>
 
@@ -466,6 +538,14 @@
           <div class="quick-link" onclick="switchPage('notes')">
             <div class="icon">📝</div>
             <div class="label">工作笔记</div>
+          </div>
+          <div class="quick-link" onclick="switchPage('todos')">
+            <div class="icon">📋</div>
+            <div class="label">待办事项</div>
+          </div>
+          <div class="quick-link" onclick="switchPage('study')">
+            <div class="icon">📖</div>
+            <div class="label">学习备考</div>
           </div>
         </div>
       </div>
@@ -569,6 +649,80 @@
       </div>
 
       <div class="note-grid" id="note-grid"></div>
+    </section>
+
+    <!-- ===== 页面7：待办事项（本周/本月）===== -->
+    <section class="page" id="page-todos">
+      <h1 class="page-title">📋 待办事项</h1>
+      <p class="page-subtitle">分周/月管理你的任务</p>
+
+      <!-- 标签切换 -->
+      <div class="tabs">
+        <button class="tab-btn active" onclick="switchTodoTab('week')">📅 本周待办</button>
+        <button class="tab-btn" onclick="switchTodoTab('month')">📆 本月待办</button>
+      </div>
+
+      <!-- 本周待办 -->
+      <div class="tab-content active" id="tab-week">
+        <div class="card">
+          <h3>🗓️ 本周任务 · <span id="week-range" style="font-weight:400;color:var(--text-light);font-size:13px;"></span></h3>
+          <div id="week-todos"></div>
+          <div class="todo-add">
+            <input class="input" type="text" id="week-todo-input" placeholder="添加本周待办…" onkeydown="if(event.key==='Enter')addWeekTodo()">
+            <input class="input" type="date" id="week-todo-date" style="max-width:140px;">
+            <button class="btn primary" onclick="addWeekTodo()">＋ 添加</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- 本月待办 -->
+      <div class="tab-content" id="tab-month">
+        <div class="card">
+          <h3>🗓️ 本月任务 · <span id="month-range" style="font-weight:400;color:var(--text-light);font-size:13px;"></span></h3>
+          <div id="month-todos"></div>
+          <div class="todo-add">
+            <input class="input" type="text" id="month-todo-input" placeholder="添加本月待办…" onkeydown="if(event.key==='Enter')addMonthTodo()">
+            <input class="input" type="date" id="month-todo-date" style="max-width:140px;">
+            <button class="btn primary" onclick="addMonthTodo()">＋ 添加</button>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ===== 页面8：学习备考 ===== -->
+    <section class="page" id="page-study">
+      <h1 class="page-title">📖 学习备考</h1>
+      <p class="page-subtitle">事业编 / 公务员 · 备考进度追踪</p>
+
+      <!-- 倒计时 -->
+      <div class="countdown-grid" id="countdown-grid"></div>
+
+      <!-- 学习科目 -->
+      <div class="card">
+        <h3>📚 学习科目进度</h3>
+        <div id="subject-list"></div>
+      </div>
+
+      <!-- 每日学习待办 -->
+      <div class="card">
+        <h3>📝 今日学习任务</h3>
+        <ul class="todo-list" id="study-todo-list"></ul>
+        <div class="todo-add">
+          <input class="input" type="text" id="study-todo-input" placeholder="添加学习任务…" onkeydown="if(event.key==='Enter')addStudyTodo()">
+          <button class="btn primary" onclick="addStudyTodo()">＋ 添加</button>
+        </div>
+      </div>
+
+      <!-- 学习资源 -->
+      <div class="card">
+        <h3>🔗 学习资源</h3>
+        <div class="note-grid" id="study-resources"></div>
+        <div style="display:flex;gap:8px;margin-top:12px;">
+          <input class="input" type="text" id="resource-title" placeholder="资源名称">
+          <input class="input" type="text" id="resource-link" placeholder="链接或说明" onkeydown="if(event.key==='Enter')addResource()">
+          <button class="btn primary" onclick="addResource()">添加</button>
+        </div>
+      </div>
     </section>
 
   </main>
@@ -679,6 +833,12 @@
       renderFAQ();
       renderAppTable();
       renderNotes();
+      renderWeekTodos();        // 新增：本周待办
+      renderMonthTodos();       // 新增：本月待办
+      renderCountdowns();       // 新增：考试倒计时
+      renderSubjects();         // 新增：学习科目
+      renderStudyTodos();       // 新增：学习待办
+      renderResources();        // 新增：学习资源
     }
 
     // ========== 页面切换 ==========
@@ -881,6 +1041,282 @@
       const div = document.createElement("div");
       div.textContent = str;
       return div.innerHTML;
+    }
+
+    // ========== 📋 待办事项（本周/本月）==========
+    function getWeekTodos() {
+      const raw = localStorage.getItem("work-assistant-week-todos");
+      return raw ? JSON.parse(raw) : [];
+    }
+    function saveWeekTodos(todos) { localStorage.setItem("work-assistant-week-todos", JSON.stringify(todos)); }
+
+    function getMonthTodos() {
+      const raw = localStorage.getItem("work-assistant-month-todos");
+      return raw ? JSON.parse(raw) : [];
+    }
+    function saveMonthTodos(todos) { localStorage.setItem("work-assistant-month-todos", JSON.stringify(todos)); }
+
+    // 获取本周范围文字
+    function getWeekRange() {
+      const now = new Date();
+      const day = now.getDay();
+      const monday = new Date(now);
+      monday.setDate(now.getDate() - (day === 0 ? 6 : day - 1));
+      const sunday = new Date(monday);
+      sunday.setDate(monday.getDate() + 6);
+      return `${monday.getMonth()+1}/${monday.getDate()} - ${sunday.getMonth()+1}/${sunday.getDate()}`;
+    }
+
+    function getMonthLabel() {
+      const now = new Date();
+      return `${now.getFullYear()}年${now.getMonth()+1}月`;
+    }
+
+    function switchTodoTab(tab) {
+      document.querySelectorAll("#page-todos .tab-btn").forEach(b => b.classList.remove("active"));
+      document.querySelectorAll("#page-todos .tab-content").forEach(c => c.classList.remove("active"));
+      if (tab === 'week') {
+        document.querySelector("#page-todos .tab-btn:nth-child(1)").classList.add("active");
+        document.getElementById("tab-week").classList.add("active");
+      } else {
+        document.querySelector("#page-todos .tab-btn:nth-child(2)").classList.add("active");
+        document.getElementById("tab-month").classList.add("active");
+      }
+    }
+
+    function renderWeekTodos() {
+      document.getElementById("week-range").textContent = getWeekRange();
+      const todos = getWeekTodos();
+      const container = document.getElementById("week-todos");
+      container.innerHTML = todos.length === 0
+        ? `<p style="color:var(--text-light);font-size:13px;padding:8px 0;">还没有本周待办 👇</p>`
+        : todos.map((t, i) => `
+          <div class="todo-item ${t.done ? 'done' : ''}">
+            <input type="checkbox" ${t.done ? 'checked' : ''} onchange="toggleWeekTodo(${i})">
+            <span style="flex:1;">${escapeHtml(t.text)}</span>
+            <span style="font-size:11px;color:var(--text-light);margin-right:8px;">${t.date || ''}</span>
+            <button class="btn danger small" onclick="deleteWeekTodo(${i})">✕</button>
+          </div>`).join("");
+    }
+
+    function addWeekTodo() {
+      const input = document.getElementById("week-todo-input");
+      const dateEl = document.getElementById("week-todo-date");
+      const text = input.value.trim();
+      if (!text) return;
+      const todos = getWeekTodos();
+      todos.push({ text, date: dateEl.value, done: false });
+      saveWeekTodos(todos);
+      input.value = "";
+      renderWeekTodos();
+    }
+
+    function toggleWeekTodo(i) {
+      const todos = getWeekTodos();
+      if (todos[i]) { todos[i].done = !todos[i].done; saveWeekTodos(todos); renderWeekTodos(); }
+    }
+
+    function deleteWeekTodo(i) {
+      const todos = getWeekTodos();
+      todos.splice(i, 1);
+      saveWeekTodos(todos);
+      renderWeekTodos();
+    }
+
+    function renderMonthTodos() {
+      document.getElementById("month-range").textContent = getMonthLabel();
+      const todos = getMonthTodos();
+      const container = document.getElementById("month-todos");
+      container.innerHTML = todos.length === 0
+        ? `<p style="color:var(--text-light);font-size:13px;padding:8px 0;">还没有本月待办 👇</p>`
+        : todos.map((t, i) => `
+          <div class="todo-item ${t.done ? 'done' : ''}">
+            <input type="checkbox" ${t.done ? 'checked' : ''} onchange="toggleMonthTodo(${i})">
+            <span style="flex:1;">${escapeHtml(t.text)}</span>
+            <span style="font-size:11px;color:var(--text-light);margin-right:8px;">${t.date || ''}</span>
+            <button class="btn danger small" onclick="deleteMonthTodo(${i})">✕</button>
+          </div>`).join("");
+    }
+
+    function addMonthTodo() {
+      const input = document.getElementById("month-todo-input");
+      const dateEl = document.getElementById("month-todo-date");
+      const text = input.value.trim();
+      if (!text) return;
+      const todos = getMonthTodos();
+      todos.push({ text, date: dateEl.value, done: false });
+      saveMonthTodos(todos);
+      input.value = "";
+      renderMonthTodos();
+    }
+
+    function toggleMonthTodo(i) {
+      const todos = getMonthTodos();
+      if (todos[i]) { todos[i].done = !todos[i].done; saveMonthTodos(todos); renderMonthTodos(); }
+    }
+
+    function deleteMonthTodo(i) {
+      const todos = getMonthTodos();
+      todos.splice(i, 1);
+      saveMonthTodos(todos);
+      renderMonthTodos();
+    }
+
+    // ========== 📖 学习备考 ==========
+    // 考试倒计时数据（可以改成你自己的考试日期）
+    const examData = [
+      { name: "广东省事业编统考", date: "2026-10-25", icon: "📝" },
+      { name: "国家公务员考试", date: "2026-11-29", icon: "🏛️" },
+    ];
+
+    // 学习科目
+    const defaultSubjects = [
+      { name: "行政职业能力测验", icon: "🧮", progress: 0, color: "blue" },
+      { name: "申论", icon: "✍️", progress: 0, color: "purple" },
+      { name: "公共基础知识", icon: "📚", progress: 0, color: "green" },
+      { name: "时事政治", icon: "📰", progress: 0, color: "orange" },
+    ];
+
+    function getSubjects() {
+      const raw = localStorage.getItem("work-assistant-subjects");
+      return raw ? JSON.parse(raw) : defaultSubjects.map(s => ({...s}));
+    }
+    function saveSubjects(s) { localStorage.setItem("work-assistant-subjects", JSON.stringify(s)); }
+
+    function renderCountdowns() {
+      const now = new Date();
+      now.setHours(0, 0, 0, 0);
+      document.getElementById("countdown-grid").innerHTML = examData.map(e => {
+        const target = new Date(e.date + "T00:00:00");
+        const diff = Math.ceil((target - now) / (1000 * 60 * 60 * 24));
+        return `
+          <div class="countdown-card">
+            <div style="font-size:28px;">${e.icon}</div>
+            <div class="countdown-num">${diff > 0 ? diff : 0}</div>
+            <div class="countdown-label">天</div>
+            <div style="font-size:13px;font-weight:500;margin-top:4px;">${e.name}</div>
+            <div style="font-size:11px;color:var(--text-light);">${e.date}</div>
+          </div>`;
+      }).join("");
+    }
+
+    function renderSubjects() {
+      const subjects = getSubjects();
+      document.getElementById("subject-list").innerHTML = subjects.map((s, i) => {
+        const tagColors = { blue: "#dbeafe", green: "#d1fae5", purple: "#ede9fe", orange: "#fff7ed" };
+        const textColors = { blue: "#1d4ed8", green: "#047857", purple: "#6d28d9", orange: "#c2410c" };
+        return `
+          <div style="margin-bottom:14px;">
+            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px;">
+              <span style="font-size:14px;">${s.icon} ${s.name}</span>
+              <span style="font-size:12px;color:var(--text-light);">${s.progress}%</span>
+            </div>
+            <div class="progress-bar">
+              <div class="progress-fill" style="width:${s.progress}%;"></div>
+            </div>
+            <div style="margin-top:4px;display:flex;gap:4px;">
+              ${[0,25,50,75,100].map(pct =>
+                `<button class="btn small" style="font-size:10px;padding:2px 6px;" onclick="setSubjectProgress(${i},${pct})">${pct}%</button>`
+              ).join("")}
+            </div>
+          </div>`;
+      }).join("");
+    }
+
+    function setSubjectProgress(index, pct) {
+      const subjects = getSubjects();
+      if (subjects[index]) {
+        subjects[index].progress = pct;
+        saveSubjects(subjects);
+        renderSubjects();
+      }
+    }
+
+    // 学习待办
+    function getStudyTodos() {
+      const raw = localStorage.getItem("work-assistant-study-todos");
+      return raw ? JSON.parse(raw) : [];
+    }
+    function saveStudyTodos(todos) { localStorage.setItem("work-assistant-study-todos", JSON.stringify(todos)); }
+
+    function renderStudyTodos() {
+      const list = document.getElementById("study-todo-list");
+      const todos = getStudyTodos();
+      list.innerHTML = todos.length === 0
+        ? `<li style="color:var(--text-light);font-size:13px;padding:8px 0;">还没有学习任务，添加一个吧 📖</li>`
+        : todos.map((t, i) => `
+          <li class="todo-item ${t.done ? 'done' : ''}">
+            <input type="checkbox" ${t.done ? 'checked' : ''} onchange="toggleStudyTodo(${i})">
+            <span style="flex:1;">${escapeHtml(t.text)}</span>
+            <button class="btn danger small" onclick="deleteStudyTodo(${i})">✕</button>
+          </li>`).join("");
+    }
+
+    function addStudyTodo() {
+      const input = document.getElementById("study-todo-input");
+      const text = input.value.trim();
+      if (!text) return;
+      const todos = getStudyTodos();
+      todos.push({ text, done: false });
+      saveStudyTodos(todos);
+      input.value = "";
+      renderStudyTodos();
+    }
+
+    function toggleStudyTodo(i) {
+      const todos = getStudyTodos();
+      if (todos[i]) { todos[i].done = !todos[i].done; saveStudyTodos(todos); renderStudyTodos(); }
+    }
+
+    function deleteStudyTodo(i) {
+      const todos = getStudyTodos();
+      todos.splice(i, 1);
+      saveStudyTodos(todos);
+      renderStudyTodos();
+    }
+
+    // 学习资源
+    function getResources() {
+      const raw = localStorage.getItem("work-assistant-resources");
+      return raw ? JSON.parse(raw) : [
+        { title: "粉笔App", link: "刷题、模考、真题解析" },
+        { title: "华图在线", link: "网课、题库、备考资料" },
+        { title: "学习强国", link: "时事政治、重要讲话" },
+        { title: "人民日报评论", link: "申论素材积累" },
+      ];
+    }
+    function saveResources(r) { localStorage.setItem("work-assistant-resources", JSON.stringify(r)); }
+
+    function renderResources() {
+      const container = document.getElementById("study-resources");
+      const resources = getResources();
+      container.innerHTML = resources.map((r, i) => `
+        <div class="note-card">
+          <h4>🔗 ${escapeHtml(r.title)}</h4>
+          <p style="font-size:13px;color:var(--text-light);">${escapeHtml(r.link)}</p>
+          <button class="btn danger small" style="margin-top:8px;" onclick="deleteResource(${i})">删除</button>
+        </div>`).join("");
+    }
+
+    function addResource() {
+      const titleEl = document.getElementById("resource-title");
+      const linkEl = document.getElementById("resource-link");
+      const title = titleEl.value.trim();
+      const link = linkEl.value.trim();
+      if (!title || !link) return;
+      const resources = getResources();
+      resources.unshift({ title, link });
+      saveResources(resources);
+      titleEl.value = "";
+      linkEl.value = "";
+      renderResources();
+    }
+
+    function deleteResource(i) {
+      const resources = getResources();
+      resources.splice(i, 1);
+      saveResources(resources);
+      renderResources();
     }
 
     // ========== 启动！（加了错误捕获，方便排查问题）==========
