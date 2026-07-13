@@ -326,7 +326,7 @@
   <!-- ==================== 左侧导航 ==================== -->
   <nav class="sidebar" id="sidebar">
     <div class="sidebar-logo">
-      <h2>📋 工作助手 <span style="font-size:10px;color:#666;">v16</span></h2>
+      <h2>📋 工作助手 <span style="font-size:10px;color:#666;">v17</span></h2>
       <span>珠海科技学院</span>
     </div>
 
@@ -784,6 +784,7 @@
       calYear = now.getFullYear();
       calMonth = now.getMonth();
       calSelectedDate = now.toISOString().split("T")[0];
+      sortAllExistingEvents();  // 旧数据按标签排序
       renderTagSelector();
       renderCalendar(calYear, calMonth);
 
@@ -1105,8 +1106,24 @@
       const tagOrder = getAllTags().map(t => t.id);
       return [...tasks].sort((a, b) => {
         const ai = tagOrder.indexOf(a.tag), bi = tagOrder.indexOf(b.tag);
-        return (ai === -1 ? 999 : ai) - (bi === -1 ? 999 : bi);
+        if (ai === -1 && bi === -1) return 0;
+        if (ai === -1) return 1;
+        if (bi === -1) return -1;
+        return ai - bi;
       });
+    }
+
+    function sortAllExistingEvents() {
+      const events = getCalEvents();
+      let changed = false;
+      Object.keys(events).forEach(dateStr => {
+        const sorted = sortTasksByTag(events[dateStr]);
+        if (JSON.stringify(sorted) !== JSON.stringify(events[dateStr])) {
+          events[dateStr] = sorted;
+          changed = true;
+        }
+      });
+      if (changed) saveCalEvents(events);
     }
 
     function setEventsForDate(dateStr, tasks) {
