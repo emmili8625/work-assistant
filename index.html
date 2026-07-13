@@ -268,6 +268,11 @@
       display: block; font-size: 10px; line-height: 1.4;
       padding: 1px 4px; border-radius: 3px; margin-bottom: 1px;
       white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+      font-weight: 500; cursor: pointer;
+    }
+    select.cal-event-tag {
+      appearance: none; -webkit-appearance: none;
+      outline: none; font-family: inherit; font-size: 10px;
     }
     .cal-more { font-size: 10px; color: var(--accent); cursor: pointer; }
     .cal-tag-red    { background: #fee2e2; color: #991b1b; }
@@ -314,7 +319,7 @@
   <!-- ==================== 左侧导航 ==================== -->
   <nav class="sidebar" id="sidebar">
     <div class="sidebar-logo">
-      <h2>📋 工作助手 <span style="font-size:10px;color:#666;">v12</span></h2>
+      <h2>📋 工作助手 <span style="font-size:10px;color:#666;">v13</span></h2>
       <span>珠海科技学院</span>
     </div>
 
@@ -895,7 +900,7 @@
     let calYear, calMonth, calSelectedDate;
     const TAG_DEFAULTS = [
       { id: "red", name: "紧急", color: "#ef4444", bg: "#fee2e2", cssClass: "cal-tag-red" },
-      { id: "blue", name: "日常", color: "#2563eb", bg: "#dbeafe", cssClass: "cal-tag-blue" },
+      { id: "blue", name: "工作", color: "#2563eb", bg: "#dbeafe", cssClass: "cal-tag-blue" },
       { id: "orange", name: "生活", color: "#ea580c", bg: "#ffedd5", cssClass: "cal-tag-orange" },
       { id: "green", name: "学习", color: "#059669", bg: "#d1fae5", cssClass: "cal-tag-green" },
       { id: "purple", name: "运动", color: "#7c3aed", bg: "#ede9fe", cssClass: "cal-tag-purple" },
@@ -1142,19 +1147,36 @@
       title.textContent = `📌 ${y}年${parseInt(m)}月${parseInt(d)}日`;
 
       const tasks = getEventsForDate(dateStr);
+      const allTags = getAllTags();
       tasksDiv.innerHTML = tasks.length === 0
         ? `<p style="color:var(--text-light);font-size:13px;">这天还没有任务 👇</p>`
         : tasks.map((t, i) => {
             const tag = getTagById(t.tag);
             const tagClass = getTagCssClass(t.tag);
+            const tagOptions = allTags.map(tg =>
+              `<option value="${tg.id}" ${tg.id === t.tag ? 'selected' : ''}>${tg.name}</option>`
+            ).join("");
             return `
             <div class="todo-item ${t.done ? 'done' : ''}">
               <input type="checkbox" ${t.done ? 'checked' : ''} onchange="toggleCalTask('${dateStr}',${i})">
-              <span class="cal-event-tag ${tagClass}" style="font-size:10px;margin-right:4px;">${tag.name}</span>
+              <select class="cal-event-tag ${tagClass}" style="font-size:10px;border:none;padding:1px 4px;border-radius:3px;cursor:pointer;font-weight:500;"
+                      onchange="changeTaskTag('${dateStr}',${i},this.value)">
+                ${tagOptions}
+              </select>
               <span class="todo-text" style="flex:1;" onclick="startEditCalTask(this, '${dateStr}', ${i})">${escapeHtml(t.text)}</span>
               <button class="btn danger small" onclick="deleteCalTask('${dateStr}',${i})">✕</button>
             </div>`;
           }).join("");
+    }
+
+    function changeTaskTag(dateStr, index, newTagId) {
+      const tasks = getEventsForDate(dateStr);
+      if (tasks[index]) {
+        tasks[index].tag = newTagId;
+        setEventsForDate(dateStr, tasks);
+        renderCalDayPanel(dateStr);
+        renderCalendar(calYear, calMonth);
+      }
     }
 
     function addCalTask() {
