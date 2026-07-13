@@ -222,6 +222,49 @@
     .countdown-num { font-size: 36px; font-weight: 700; color: var(--accent); }
     .countdown-label { font-size: 13px; color: var(--text-light); margin-top: 2px; }
 
+    /* ========== 日历 ========== */
+    .calendar { width: 100%; }
+    .cal-header {
+      display: flex; align-items: center; justify-content: space-between;
+      margin-bottom: 8px; font-size: 14px; font-weight: 600;
+    }
+    .cal-nav {
+      background: none; border: 1px solid var(--border); border-radius: 6px;
+      padding: 4px 10px; cursor: pointer; font-size: 16px;
+    }
+    .cal-nav:hover { background: #f3f4f6; }
+    .cal-grid {
+      display: grid;
+      grid-template-columns: repeat(7, 1fr);
+      gap: 2px; text-align: center;
+    }
+    .cal-day-label {
+      font-size: 11px; color: var(--text-light); padding: 4px 0;
+      font-weight: 500;
+    }
+    .cal-day {
+      aspect-ratio: 1;
+      display: flex; flex-direction: column; align-items: center;
+      justify-content: center;
+      border-radius: 8px; cursor: pointer; font-size: 13px;
+      transition: all 0.1s; position: relative;
+    }
+    .cal-day:hover { background: var(--accent-light); }
+    .cal-day.today { background: var(--accent); color: #fff; font-weight: 700; }
+    .cal-day.today:hover { background: #1d4ed8; }
+    .cal-day.selected { box-shadow: 0 0 0 2px var(--accent); }
+    .cal-day.other-month { color: #d1d5db; cursor: default; }
+    .cal-dot {
+      width: 5px; height: 5px; border-radius: 50%; background: var(--accent);
+      position: absolute; bottom: 3px;
+    }
+    .cal-day.today .cal-dot { background: #fff; }
+    .cal-day-panel {
+      background: var(--card-bg); border: 1px solid var(--border);
+      border-radius: 10px; padding: 14px; margin-top: 10px;
+    }
+    .cal-day-panel h4 { font-size: 13px; margin-bottom: 8px; }
+
     /* ========== 图片 ========== */
     .map-image { width: 100%; border-radius: 8px; border: 1px solid var(--border); cursor: pointer; }
     .map-image:hover { opacity: 0.9; }
@@ -249,7 +292,7 @@
   <!-- ==================== 左侧导航 ==================== -->
   <nav class="sidebar" id="sidebar">
     <div class="sidebar-logo">
-      <h2>📋 工作助手 <span style="font-size:10px;color:#666;">v8</span></h2>
+      <h2>📋 工作助手 <span style="font-size:10px;color:#666;">v9</span></h2>
       <span>珠海科技学院</span>
     </div>
 
@@ -324,7 +367,20 @@
     <!-- ===== 工作事项（今日/本周/本月/本学期）===== -->
     <section class="page" id="page-work">
       <h1 class="page-title">📅 工作事项</h1>
-      <p class="page-subtitle">按时间维度管理所有工作任务</p>
+      <p class="page-subtitle">日历记录 · 自动汇总到今日/本周/本月</p>
+
+      <!-- 日历 -->
+      <div class="card" style="padding:14px 16px;">
+        <div class="calendar" id="calendar-widget"></div>
+        <div class="cal-day-panel" id="cal-day-panel" style="display:none;">
+          <h4 id="cal-panel-title"></h4>
+          <div id="cal-day-tasks"></div>
+          <div class="todo-add">
+            <input class="input" type="text" id="cal-task-input" placeholder="添加当天任务…" onkeydown="if(event.key==='Enter')addCalTask()">
+            <button class="btn primary" onclick="addCalTask()">＋ 添加</button>
+          </div>
+        </div>
+      </div>
 
       <div class="tabs">
         <button class="tab-btn active" onclick="switchWorkTab('today')">☀️ 今日</button>
@@ -675,10 +731,16 @@
         localStorage.setItem("work-assistant-todos", JSON.stringify(defaultTodos));
       }
 
+      // 初始化日历
+      calYear = now.getFullYear();
+      calMonth = now.getMonth();
+      calSelectedDate = now.toISOString().split("T")[0];
+      renderCalendar(calYear, calMonth);
+
       renderTodoList();
       renderTimeline();
-      renderWorkWeek();
-      renderWorkMonth();
+      mergeAndRenderWeek();
+      mergeAndRenderMonth();
       renderWorkSemester();
       renderLocations(locationsData);
       renderReimburseSteps();
@@ -790,6 +852,204 @@
     function toggleTodo(i) { const t = getTodos(); if (t[i]) { t[i].done = !t[i].done; saveTodos(t); renderTodoList(); } }
     function deleteTodo(i) { const t = getTodos(); t.splice(i, 1); saveTodos(t); renderTodoList(); }
     function saveTodoEdit(i, newText) { const t = getTodos(); if (t[i]) { t[i].text = newText; saveTodos(t); renderTodoList(); } }
+
+    // ========== 🗓️ 日历 ==========
+    let calYear, calMonth, calSelectedDate;
+
+    function getCalEvents() {
+      const raw = localStorage.getItem("work-assistant-calendar");
+      return raw ? JSON.parse(raw) : {};
+    }
+    function saveCalEvents(d) { localStorage.setItem("work-assistant-calendar", JSON.stringify(d)); }
+
+    function getEventsForDate(dateStr) {
+      const events = getCalEvents();
+      return events[dateStr] || [];
+    }
+    function setEventsForDate(dateStr, tasks) {
+      const events = getCalEvents();
+      if (tasks.length === 0) { delete events[dateStr]; }
+      else { events[dateStr] = tasks; }
+      saveCalEvents(events);
+    }
+
+    function renderCalendar(year, month) {
+      calYear = year; calMonth = month;
+      const container = document.getElementById("calendar-widget");
+      const today = new Date();
+      const todayStr = today.toISOString().split("T")[0];
+      const events = getCalEvents();
+
+      const firstDay = new Date(year, month, 1);
+      const lastDay = new Date(year, month + 1, 0);
+      const startDow = firstDay.getDay(); // 0=Sun
+      const daysInMonth = lastDay.getDate();
+      const prevLastDay = new Date(year, month, 0).getDate();
+
+      const dayLabels = ["日","一","二","三","四","五","六"];
+      const monthNames = ["1月","2月","3月","4月","5月","6月","7月","8月","9月","10月","11月","12月"];
+
+      let html = `<div class="cal-header">
+        <button class="cal-nav" onclick="renderCalendar(${year},${month}-1)">‹</button>
+        <span>${year}年 ${monthNames[month]}</span>
+        <button class="cal-nav" onclick="renderCalendar(${year},${month}+1)">›</button>
+      </div>`;
+
+      html += `<div class="cal-grid">`;
+      dayLabels.forEach(d => { html += `<div class="cal-day-label">${d}</div>`; });
+
+      // 上月填充
+      for (let i = startDow - 1; i >= 0; i--) {
+        html += `<div class="cal-day other-month">${prevLastDay - i}</div>`;
+      }
+
+      // 本月日期
+      for (let d = 1; d <= daysInMonth; d++) {
+        const dateStr = `${year}-${String(month+1).padStart(2,"0")}-${String(d).padStart(2,"0")}`;
+        const isToday = dateStr === todayStr;
+        const isSelected = dateStr === calSelectedDate;
+        const hasEvents = events[dateStr] && events[dateStr].length > 0;
+        const cls = ["cal-day", isToday ? "today" : "", isSelected ? "selected" : ""].filter(Boolean).join(" ");
+
+        html += `<div class="${cls}" onclick="selectCalDate('${dateStr}')">
+          ${d}${hasEvents ? '<div class="cal-dot"></div>' : ''}
+        </div>`;
+      }
+
+      // 下月填充
+      const remaining = (7 - ((startDow + daysInMonth) % 7)) % 7;
+      for (let d = 1; d <= remaining; d++) {
+        html += `<div class="cal-day other-month">${d}</div>`;
+      }
+
+      html += `</div>`;
+      container.innerHTML = html;
+    }
+
+    function selectCalDate(dateStr) {
+      calSelectedDate = dateStr;
+      renderCalendar(calYear, calMonth);
+      renderCalDayPanel(dateStr);
+    }
+
+    function renderCalDayPanel(dateStr) {
+      const panel = document.getElementById("cal-day-panel");
+      const title = document.getElementById("cal-panel-title");
+      const tasksDiv = document.getElementById("cal-day-tasks");
+
+      panel.style.display = "block";
+      const [y, m, d] = dateStr.split("-");
+      title.textContent = `📌 ${y}年${parseInt(m)}月${parseInt(d)}日 的任务`;
+
+      const tasks = getEventsForDate(dateStr);
+      tasksDiv.innerHTML = tasks.length === 0
+        ? `<p style="color:var(--text-light);font-size:13px;">这天还没有任务，添加一个吧 👇</p>`
+        : tasks.map((t, i) => `
+          <div class="todo-item ${t.done ? 'done' : ''}">
+            <input type="checkbox" ${t.done ? 'checked' : ''} onchange="toggleCalTask('${dateStr}',${i})">
+            <span class="todo-text" style="flex:1;" onclick="startEditCalTask(this, '${dateStr}', ${i})">${escapeHtml(t.text)}</span>
+            <button class="btn danger small" onclick="deleteCalTask('${dateStr}',${i})">✕</button>
+          </div>`).join("");
+    }
+
+    function addCalTask() {
+      if (!calSelectedDate) { alert("请先在日历上点击一个日期"); return; }
+      const input = document.getElementById("cal-task-input");
+      const text = input.value.trim();
+      if (!text) return;
+      const tasks = getEventsForDate(calSelectedDate);
+      tasks.push({ text, done: false });
+      setEventsForDate(calSelectedDate, tasks);
+      input.value = "";
+      renderCalDayPanel(calSelectedDate);
+      renderCalendar(calYear, calMonth); // 刷新日历小圆点
+      // 如果选中的是今天，也刷新今日tab
+      const today = new Date().toISOString().split("T")[0];
+      if (calSelectedDate === today) mergeAndRenderToday();
+    }
+
+    function toggleCalTask(dateStr, i) {
+      const tasks = getEventsForDate(dateStr);
+      if (tasks[i]) { tasks[i].done = !tasks[i].done; setEventsForDate(dateStr, tasks); renderCalDayPanel(dateStr); }
+    }
+
+    function deleteCalTask(dateStr, i) {
+      const tasks = getEventsForDate(dateStr);
+      tasks.splice(i, 1);
+      setEventsForDate(dateStr, tasks);
+      renderCalDayPanel(dateStr);
+      renderCalendar(calYear, calMonth);
+    }
+
+    function startEditCalTask(span, dateStr, i) {
+      if (span.classList.contains('editing')) return;
+      const oldText = span.textContent;
+      span.classList.add('editing'); span.contentEditable = 'true'; span.focus();
+      const range = document.createRange(); range.selectNodeContents(span);
+      const sel = window.getSelection(); sel.removeAllRanges(); sel.addRange(range);
+
+      function finish() {
+        span.contentEditable = 'false'; span.classList.remove('editing');
+        const newText = span.textContent.trim();
+        span.removeEventListener('blur', finish); span.removeEventListener('keydown', onKey);
+        if (newText && newText !== oldText) {
+          const tasks = getEventsForDate(dateStr);
+          if (tasks[i]) { tasks[i].text = newText; setEventsForDate(dateStr, tasks); }
+        } else if (!newText) { span.textContent = oldText; }
+      }
+      function onKey(e) {
+        if (e.key === 'Enter') { e.preventDefault(); finish(); }
+        if (e.key === 'Escape') { span.textContent = oldText; finish(); }
+      }
+      span.addEventListener('blur', finish);
+      span.addEventListener('keydown', onKey);
+    }
+
+    // --- 将日历事件合并到今日/本周/本月 ---
+    function getCalEventsInRange(startDate, endDate) {
+      const events = getCalEvents();
+      const result = [];
+      Object.keys(events).forEach(dateStr => {
+        if (dateStr >= startDate && dateStr <= endDate) {
+          events[dateStr].forEach(t => result.push({ ...t, date: dateStr }));
+        }
+      });
+      return result;
+    }
+
+    function mergeAndRenderToday() { renderTimeline(); }
+
+    function mergeAndRenderWeek() {
+      renderWorkWeek(); // 原有本周数据
+      // 附加：日历中的本周任务
+      const now = new Date();
+      const day = now.getDay();
+      const mon = new Date(now); mon.setDate(now.getDate() - (day === 0 ? 6 : day - 1));
+      const sun = new Date(mon); sun.setDate(mon.getDate() + 6);
+      const calTasks = getCalEventsInRange(mon.toISOString().split("T")[0], sun.toISOString().split("T")[0]);
+      if (calTasks.length > 0) {
+        const container = document.getElementById("work-week-list");
+        container.innerHTML += `<div style="margin-top:12px;padding-top:12px;border-top:2px dashed var(--border);">
+          <p style="font-size:12px;color:var(--accent);margin-bottom:6px;">📅 来自日历</p>
+          ${calTasks.map(t => `<div class="todo-item"><span style="font-size:11px;color:var(--text-light);min-width:44px;">${t.date.slice(5)}</span><span style="flex:1;font-size:13px;">${escapeHtml(t.text)}</span>${t.done ? '<span style="color:var(--green);font-size:11px;">✓</span>' : ''}</div>`).join("")}
+        </div>`;
+      }
+    }
+
+    function mergeAndRenderMonth() {
+      renderWorkMonth();
+      const now = new Date();
+      const start = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,"0")}-01`;
+      const end = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,"0")}-31`;
+      const calTasks = getCalEventsInRange(start, end);
+      if (calTasks.length > 0) {
+        const container = document.getElementById("work-month-list");
+        container.innerHTML += `<div style="margin-top:12px;padding-top:12px;border-top:2px dashed var(--border);">
+          <p style="font-size:12px;color:var(--accent);margin-bottom:6px;">📅 来自日历</p>
+          ${calTasks.map(t => `<div class="todo-item"><span style="font-size:11px;color:var(--text-light);min-width:44px;">${t.date.slice(5)}</span><span style="flex:1;font-size:13px;">${escapeHtml(t.text)}</span>${t.done ? '<span style="color:var(--green);font-size:11px;">✓</span>' : ''}</div>`).join("")}
+        </div>`;
+      }
+    }
 
     // ========== 📅 工作事项 ==========
 
