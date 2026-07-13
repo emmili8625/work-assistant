@@ -287,11 +287,16 @@
       border-radius: 10px; padding: 14px; margin-top: 10px;
     }
 
+    .cal-cell select.cal-event-tag {
+      font-size: 8px; padding: 0 2px; max-width: 52px; height: 16px;
+    }
+
     /* 日历在手机上缩小格子 */
     @media (max-width: 768px) {
       .cal-cell { min-height: 60px; padding: 2px 3px; }
       .cal-date-num { width: 18px; height: 18px; font-size: 10px; }
       .cal-event-tag { font-size: 8px; padding: 0 2px; }
+      .cal-cell select.cal-event-tag { font-size: 7px; max-width: 40px; height: 14px; }
     }
 
     /* ========== 图片 ========== */
@@ -321,7 +326,7 @@
   <!-- ==================== 左侧导航 ==================== -->
   <nav class="sidebar" id="sidebar">
     <div class="sidebar-logo">
-      <h2>📋 工作助手 <span style="font-size:10px;color:#666;">v14</span></h2>
+      <h2>📋 工作助手 <span style="font-size:10px;color:#666;">v15</span></h2>
       <span>珠海科技学院</span>
     </div>
 
@@ -1145,10 +1150,21 @@
         const cls = ["cal-cell", isToday ? "today" : "", isSelected ? "selected" : "", isHoliday ? "holiday" : ""].filter(Boolean).join(" ");
 
         let eventTags = "";
+        const allTagsOpts = getAllTags().map(tg =>
+          `<option value="${tg.id}">${tg.name}</option>`
+        ).join("");
         const showEvents = dayEvents.slice(0, MAX_EVENTS_PER_CELL);
-        showEvents.forEach(e => {
+        showEvents.forEach((e, idx) => {
+          const originalIdx = dayEvents.indexOf(e);
           const tagClass = getTagCssClass(e.tag);
-          eventTags += `<span class="cal-event-tag ${tagClass}">${escapeHtml(e.text)}</span>`;
+          eventTags += `<span style="display:flex;align-items:center;gap:2px;margin-bottom:1px;">
+            <select class="cal-event-tag ${tagClass}" style="font-size:8px;max-width:60px;"
+                    onchange="changeCalCellTag('${dateStr}',${originalIdx},this.value)" onclick="event.stopPropagation()"
+                    title="点击切换标签">
+              ${allTagsOpts.replace(`value="${e.tag}"`,`value="${e.tag}" selected`)}
+            </select>
+            <span style="font-size:10px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1;">${escapeHtml(e.text)}</span>
+          </span>`;
         });
         if (dayEvents.length > MAX_EVENTS_PER_CELL) {
           eventTags += `<span class="cal-more">+${dayEvents.length - MAX_EVENTS_PER_CELL}条</span>`;
@@ -1207,6 +1223,16 @@
               <button class="btn danger small" onclick="deleteCalTask('${dateStr}',${i})">✕</button>
             </div>`;
           }).join("");
+    }
+
+    function changeCalCellTag(dateStr, index, newTagId) {
+      const tasks = getEventsForDate(dateStr);
+      if (tasks[index]) {
+        tasks[index].tag = newTagId;
+        setEventsForDate(dateStr, tasks);
+        renderCalendar(calYear, calMonth);
+        if (calSelectedDate === dateStr) renderCalDayPanel(dateStr);
+      }
     }
 
     function changeTaskTag(dateStr, index, newTagId) {
