@@ -249,15 +249,19 @@
   <!-- ==================== 左侧导航 ==================== -->
   <nav class="sidebar" id="sidebar">
     <div class="sidebar-logo">
-      <h2>📋 工作助手 <span style="font-size:10px;color:#666;">v7</span></h2>
+      <h2>📋 工作助手 <span style="font-size:10px;color:#666;">v8</span></h2>
       <span>珠海科技学院</span>
     </div>
 
+    <!-- 工作相关 -->
     <div class="nav-item active" data-page="dashboard" onclick="switchPage('dashboard')">
       <span class="nav-icon">🏠</span> 首页仪表盘
     </div>
     <div class="nav-item" data-page="work" onclick="switchPage('work')">
       <span class="nav-icon">📅</span> 工作事项
+    </div>
+    <div class="nav-item" data-page="archive" onclick="switchPage('archive')">
+      <span class="nav-icon">🗂️</span> 工作存档
     </div>
     <div class="nav-item" data-page="campus" onclick="switchPage('campus')">
       <span class="nav-icon">🗺️</span> 校园地图
@@ -268,17 +272,19 @@
     <div class="nav-item" data-page="apps" onclick="switchPage('apps')">
       <span class="nav-icon">📱</span> App 大全
     </div>
+    <div class="nav-item" data-page="notes" onclick="switchPage('notes')">
+      <span class="nav-icon">📌</span> 工作笔记
+    </div>
+    <!-- 学习 -->
     <div class="nav-item" data-page="study" onclick="switchPage('study')">
       <span class="nav-icon">📖</span> 学习备考
     </div>
+    <!-- 生活 -->
     <div class="nav-item" data-page="life" onclick="switchPage('life')">
       <span class="nav-icon">🏡</span> 生活琐事
     </div>
     <div class="nav-item" data-page="quicknotes" onclick="switchPage('quicknotes')">
       <span class="nav-icon">📝</span> 随手记
-    </div>
-    <div class="nav-item" data-page="notes" onclick="switchPage('notes')">
-      <span class="nav-icon">📌</span> 工作笔记
     </div>
   </nav>
 
@@ -295,13 +301,13 @@
         <h3>🚀 快捷入口</h3>
         <div class="quick-links">
           <div class="quick-link" onclick="switchPage('work')"><div class="icon">📅</div><div class="label">工作事项</div></div>
+          <div class="quick-link" onclick="switchPage('archive')"><div class="icon">🗂️</div><div class="label">工作存档</div></div>
           <div class="quick-link" onclick="switchPage('campus')"><div class="icon">🗺️</div><div class="label">校园地图</div></div>
           <div class="quick-link" onclick="switchPage('reimburse')"><div class="icon">💰</div><div class="label">报销指南</div></div>
           <div class="quick-link" onclick="switchPage('apps')"><div class="icon">📱</div><div class="label">App大全</div></div>
+          <div class="quick-link" onclick="switchPage('notes')"><div class="icon">📌</div><div class="label">工作笔记</div></div>
           <div class="quick-link" onclick="switchPage('study')"><div class="icon">📖</div><div class="label">学习备考</div></div>
           <div class="quick-link" onclick="switchPage('life')"><div class="icon">🏡</div><div class="label">生活琐事</div></div>
-          <div class="quick-link" onclick="switchPage('quicknotes')"><div class="icon">📝</div><div class="label">随手记</div></div>
-          <div class="quick-link" onclick="switchPage('notes')"><div class="icon">📌</div><div class="label">工作笔记</div></div>
         </div>
       </div>
 
@@ -377,6 +383,69 @@
             <button class="btn primary" onclick="addWorkSemester()">＋ 添加</button>
           </div>
         </div>
+      </div>
+    </section>
+
+    <!-- ===== 工作存档 ===== -->
+    <section class="page" id="page-archive">
+      <h1 class="page-title">🗂️ 工作存档</h1>
+      <p class="page-subtitle">辅导员每日工作记录 · 规范存档</p>
+
+      <!-- 新增记录 -->
+      <div class="card">
+        <h3>✍️ 新增今日记录</h3>
+        <div style="display:flex;gap:12px;margin-bottom:12px;flex-wrap:wrap;">
+          <div><label style="font-size:12px;color:var(--text-light);">日期</label><br>
+            <input class="input" type="date" id="archive-date" style="width:150px;"></div>
+          <div><label style="font-size:12px;color:var(--text-light);">天气</label><br>
+            <select class="input" id="archive-weather" style="width:120px;">
+              <option value="">选择</option><option>☀️ 晴</option><option>⛅ 多云</option><option>🌧️ 雨</option><option>🌫️ 阴</option>
+            </select></div>
+        </div>
+
+        <h4 style="font-size:14px;margin-bottom:6px;">一、学生日常管理</h4>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px;">
+          <div><label style="font-size:11px;color:var(--text-light);">谈心谈话（人次 + 简述）</label>
+            <input class="input" type="text" id="a-talk" placeholder="如：3人次，关于学业预警、心理疏导…"></div>
+          <div><label style="font-size:11px;color:var(--text-light);">走访宿舍（间数 + 情况）</label>
+            <input class="input" type="text" id="a-dorm" placeholder="如：5间，卫生状况良好…"></div>
+          <div><label style="font-size:11px;color:var(--text-light);">查课查勤（课程/班级/出勤）</label>
+            <input class="input" type="text" id="a-check" placeholder="如：2025级计科1班，全勤"></div>
+          <div><label style="font-size:11px;color:var(--text-light);">突发事件（有无，简述）</label>
+            <input class="input" type="text" id="a-emergency" placeholder="如：无 / 简述处理过程"></div>
+        </div>
+
+        <h4 style="font-size:14px;margin-bottom:6px;">二、事务性工作</h4>
+        <textarea class="input" id="a-affairs" rows="2" style="width:100%;resize:vertical;margin-bottom:12px;"
+                  placeholder="如：评奖材料审核、助学贷款咨询、请假审批…"></textarea>
+
+        <h4 style="font-size:14px;margin-bottom:6px;">三、会议与活动</h4>
+        <textarea class="input" id="a-meetings" rows="2" style="width:100%;resize:vertical;margin-bottom:12px;"
+                  placeholder="如：参加学工例会、组织主题班会…"></textarea>
+
+        <h4 style="font-size:14px;margin-bottom:6px;">四、重点关注学生</h4>
+        <div id="focus-students" style="margin-bottom:8px;"></div>
+        <button class="btn small" onclick="addFocusStudent()" style="margin-bottom:12px;">＋ 添加学生</button>
+
+        <h4 style="font-size:14px;margin-bottom:6px;">五、工作总结与反思</h4>
+        <textarea class="input" id="a-summary" rows="2" style="width:100%;resize:vertical;margin-bottom:12px;"
+                  placeholder="当天工作亮点和不足…"></textarea>
+
+        <h4 style="font-size:14px;margin-bottom:6px;">六、明日计划</h4>
+        <textarea class="input" id="a-plan" rows="2" style="width:100%;resize:vertical;margin-bottom:16px;"
+                  placeholder="明日待办事项…"></textarea>
+
+        <button class="btn primary" onclick="saveArchive()">💾 保存存档</button>
+        <span id="archive-msg" style="font-size:12px;color:var(--green);margin-left:12px;display:none;">✅ 已保存</span>
+      </div>
+
+      <!-- 历史记录 -->
+      <div class="card">
+        <h3>📂 历史记录 <span style="font-weight:400;color:var(--text-light);font-size:12px;" id="archive-count"></span></h3>
+        <div style="margin-bottom:12px;">
+          <input class="input" type="text" id="archive-search" placeholder="搜索存档…" oninput="renderArchiveList()" style="max-width:300px;">
+        </div>
+        <div id="archive-list"></div>
       </div>
     </section>
 
@@ -623,6 +692,11 @@
       renderLifeTodos();
       renderQuickNotes();
       renderNotes();
+      renderArchiveList();
+
+      // 工作存档默认日期设为今天
+      const dateEl = document.getElementById("archive-date");
+      if (dateEl) dateEl.value = now.toISOString().split("T")[0];
     }
 
     // ========== 页面切换 ==========
@@ -1111,10 +1185,127 @@
 
     function deleteNote(i) { const n = getNotes(); n.splice(i, 1); saveNotes(n); renderNotes(); }
 
+    // ========== 🗂️ 工作存档 ==========
+    let tempFocusStudents = [];
+
+    function addFocusStudent(name, situation, followup) {
+      const container = document.getElementById("focus-students");
+      const idx = tempFocusStudents.length;
+      tempFocusStudents.push({ name: name || "", situation: situation || "", followup: followup || "" });
+      container.insertAdjacentHTML("beforeend", `
+        <div class="focus-row" id="focus-${idx}" style="display:flex;gap:8px;margin-bottom:6px;align-items:center;">
+          <input class="input" type="text" placeholder="姓名/化名" style="flex:1;" value="${escapeHtml(name || '')}"
+                 onchange="tempFocusStudents[${idx}].name=this.value">
+          <input class="input" type="text" placeholder="情况简述" style="flex:2;" value="${escapeHtml(situation || '')}"
+                 onchange="tempFocusStudents[${idx}].situation=this.value">
+          <input class="input" type="text" placeholder="跟进措施" style="flex:2;" value="${escapeHtml(followup || '')}"
+                 onchange="tempFocusStudents[${idx}].followup=this.value">
+          <button class="btn danger small" onclick="this.parentElement.remove();tempFocusStudents[${idx}]=null;">✕</button>
+        </div>`);
+    }
+
+    function getArchives() {
+      const raw = localStorage.getItem("work-assistant-archives");
+      return raw ? JSON.parse(raw) : [];
+    }
+    function saveArchives(d) { localStorage.setItem("work-assistant-archives", JSON.stringify(d)); }
+
+    function saveArchive() {
+      const date = document.getElementById("archive-date").value || new Date().toISOString().split("T")[0];
+      const archive = {
+        date,
+        weather: document.getElementById("archive-weather").value,
+        talk: document.getElementById("a-talk").value,
+        dorm: document.getElementById("a-dorm").value,
+        check: document.getElementById("a-check").value,
+        emergency: document.getElementById("a-emergency").value,
+        affairs: document.getElementById("a-affairs").value,
+        meetings: document.getElementById("a-meetings").value,
+        focusStudents: tempFocusStudents.filter(Boolean),
+        summary: document.getElementById("a-summary").value,
+        plan: document.getElementById("a-plan").value,
+        savedAt: new Date().toISOString(),
+      };
+
+      const archives = getArchives();
+      // 检查是否同一天已有记录，有则更新
+      const existIdx = archives.findIndex(a => a.date === date);
+      if (existIdx >= 0) {
+        archives[existIdx] = archive;
+      } else {
+        archives.unshift(archive);
+      }
+      saveArchives(archives);
+
+      // 清空提示
+      const msg = document.getElementById("archive-msg");
+      msg.style.display = "inline";
+      setTimeout(() => { msg.style.display = "none"; }, 2000);
+
+      renderArchiveList();
+      clearArchiveForm();
+    }
+
+    function clearArchiveForm() {
+      ["a-talk","a-dorm","a-check","a-emergency","a-affairs","a-meetings","a-summary","a-plan"].forEach(id => {
+        document.getElementById(id).value = "";
+      });
+      document.getElementById("focus-students").innerHTML = "";
+      tempFocusStudents = [];
+    }
+
+    function renderArchiveList() {
+      const archives = getArchives();
+      const keyword = (document.getElementById("archive-search")?.value || "").trim().toLowerCase();
+      const filtered = keyword
+        ? archives.filter(a => JSON.stringify(a).toLowerCase().includes(keyword))
+        : archives;
+
+      document.getElementById("archive-count").textContent = `共 ${archives.length} 条记录`;
+
+      const container = document.getElementById("archive-list");
+      if (filtered.length === 0) {
+        container.innerHTML = `<p style="color:var(--text-light);font-size:13px;">${archives.length === 0 ? '还没有存档记录，在上方填写并保存第一条吧 ✍️' : '没有匹配的记录'}</p>`;
+        return;
+      }
+
+      container.innerHTML = filtered.map((a, i) => {
+        const realIdx = archives.indexOf(a);
+        return `
+        <div style="border:1px solid var(--border);border-radius:8px;padding:14px;margin-bottom:10px;">
+          <div style="display:flex;justify-content:space-between;align-items:center;cursor:pointer;"
+               onclick="this.nextElementSibling.classList.toggle('active')">
+            <strong>📅 ${a.date}</strong>
+            <span style="font-size:12px;color:var(--text-light);">${a.weather || ''} ▾</span>
+          </div>
+          <div class="tab-content" style="margin-top:10px;">
+            ${a.talk ? `<p style="font-size:13px;margin-bottom:4px;"><strong>谈心谈话：</strong>${escapeHtml(a.talk)}</p>` : ''}
+            ${a.dorm ? `<p style="font-size:13px;margin-bottom:4px;"><strong>走访宿舍：</strong>${escapeHtml(a.dorm)}</p>` : ''}
+            ${a.check ? `<p style="font-size:13px;margin-bottom:4px;"><strong>查课查勤：</strong>${escapeHtml(a.check)}</p>` : ''}
+            ${a.emergency ? `<p style="font-size:13px;margin-bottom:4px;"><strong>突发事件：</strong>${escapeHtml(a.emergency)}</p>` : ''}
+            ${a.affairs ? `<p style="font-size:13px;margin-bottom:4px;"><strong>事务性工作：</strong>${escapeHtml(a.affairs)}</p>` : ''}
+            ${a.meetings ? `<p style="font-size:13px;margin-bottom:4px;"><strong>会议与活动：</strong>${escapeHtml(a.meetings)}</p>` : ''}
+            ${a.focusStudents && a.focusStudents.length > 0 ? `<p style="font-size:13px;margin-bottom:4px;"><strong>重点关注学生：</strong>${a.focusStudents.map(s => escapeHtml(s.name)).join('、')}</p>` : ''}
+            ${a.summary ? `<p style="font-size:13px;margin-bottom:4px;"><strong>总结反思：</strong>${escapeHtml(a.summary)}</p>` : ''}
+            ${a.plan ? `<p style="font-size:13px;margin-bottom:4px;"><strong>明日计划：</strong>${escapeHtml(a.plan)}</p>` : ''}
+            <button class="btn danger small" style="margin-top:8px;" onclick="deleteArchive(${realIdx})">🗑️ 删除此记录</button>
+          </div>
+        </div>`;
+      }).join("");
+    }
+
+    function deleteArchive(i) {
+      if (!confirm("确定删除这条存档记录吗？此操作不可恢复。")) return;
+      const archives = getArchives();
+      archives.splice(i, 1);
+      saveArchives(archives);
+      renderArchiveList();
+    }
+
     // ========== 启动 ==========
     try {
       init();
-      console.log('✅ 工作助手 v7 启动成功！');
+      console.log('✅ 工作助手 v8 启动成功！');
     } catch (e) {
       const debug = document.getElementById('debug-info');
       debug.style.display = 'block';
