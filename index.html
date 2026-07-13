@@ -1,0 +1,876 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>珠海科技学院 · 工作助手</title>
+  <style>
+    /* ============================================
+       CSS - 网页的"皮肤"，决定颜色、布局、大小
+       所有以 -- 开头的叫"CSS变量"，方便统一换色
+       ============================================ */
+
+    /* --- 基础配色 --- */
+    :root {
+      --bg:           #f5f6f8;      /* 页面背景：浅灰 */
+      --sidebar-bg:   #1a1d23;      /* 侧边栏背景：深灰 */
+      --sidebar-text: #a0a4b0;      /* 侧边栏文字：灰色 */
+      --sidebar-hover:#252830;      /* 侧边栏悬停 */
+      --card-bg:      #ffffff;      /* 卡片背景：白色 */
+      --text:         #2c2f36;      /* 正文颜色 */
+      --text-light:   #6b7280;      /* 浅色文字 */
+      --border:       #e5e7eb;      /* 边框颜色 */
+      --accent:       #2563eb;      /* 强调色：蓝色 */
+      --accent-light: #dbeafe;      /* 强调色浅底 */
+      --red:          #ef4444;      /* 红色：删除按钮 */
+      --green:        #10b981;      /* 绿色：完成状态 */
+    }
+
+    /* --- 全局重置 --- */
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      display: flex;
+      min-height: 100vh;
+    }
+
+    /* ========== 侧边栏 ========== */
+    .sidebar {
+      width: 220px;
+      background: var(--sidebar-bg);
+      padding: 24px 0;
+      position: fixed;
+      top: 0; left: 0;
+      height: 100vh;
+      display: flex;
+      flex-direction: column;
+      z-index: 100;
+      overflow-y: auto;
+    }
+    .sidebar-logo {
+      padding: 0 20px 24px;
+      border-bottom: 1px solid rgba(255,255,255,0.08);
+      margin-bottom: 8px;
+    }
+    .sidebar-logo h2 {
+      color: #fff;
+      font-size: 15px;
+      font-weight: 600;
+    }
+    .sidebar-logo span {
+      color: var(--sidebar-text);
+      font-size: 11px;
+    }
+    .nav-item {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 10px 20px;
+      color: var(--sidebar-text);
+      cursor: pointer;
+      font-size: 14px;
+      transition: all 0.15s;
+      border-left: 3px solid transparent;
+      margin: 1px 0;
+    }
+    .nav-item:hover {
+      background: var(--sidebar-hover);
+      color: #d1d5db;
+    }
+    .nav-item.active {
+      color: #fff;
+      background: var(--sidebar-hover);
+      border-left-color: var(--accent);
+      font-weight: 500;
+    }
+    .nav-icon { font-size: 16px; width: 22px; text-align: center; }
+
+    /* 汉堡菜单按钮（手机用） */
+    .menu-toggle {
+      display: none;
+      position: fixed;
+      top: 12px; left: 12px;
+      z-index: 200;
+      background: var(--sidebar-bg);
+      color: #fff;
+      border: none;
+      width: 40px; height: 40px;
+      border-radius: 8px;
+      font-size: 20px;
+      cursor: pointer;
+    }
+
+    /* ========== 主内容区 ========== */
+    .main {
+      margin-left: 220px;
+      flex: 1;
+      padding: 32px 40px;
+      max-width: 1000px;
+    }
+
+    /* --- 页面区域：默认隐藏，加 .active 才显示 --- */
+    .page    { display: none; }
+    .page.active { display: block; animation: fadeIn 0.2s; }
+    @keyframes fadeIn { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: translateY(0); } }
+
+    /* --- 通用组件 --- */
+    .page-title {
+      font-size: 22px;
+      font-weight: 700;
+      margin-bottom: 4px;
+    }
+    .page-subtitle {
+      color: var(--text-light);
+      font-size: 13px;
+      margin-bottom: 24px;
+    }
+    .card {
+      background: var(--card-bg);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 20px;
+      margin-bottom: 16px;
+    }
+    .card h3 {
+      font-size: 15px;
+      margin-bottom: 12px;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    /* --- 按钮 --- */
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      padding: 7px 14px;
+      border-radius: 6px;
+      font-size: 13px;
+      cursor: pointer;
+      border: 1px solid var(--border);
+      background: #fff;
+      color: var(--text);
+      transition: all 0.15s;
+    }
+    .btn:hover { background: #f9fafb; }
+    .btn.primary {
+      background: var(--accent);
+      color: #fff;
+      border-color: var(--accent);
+    }
+    .btn.primary:hover { background: #1d4ed8; }
+    .btn.danger { color: var(--red); }
+    .btn.danger:hover { background: #fef2f2; border-color: var(--red); }
+    .btn.small { padding: 3px 10px; font-size: 12px; }
+
+    /* --- 输入框 --- */
+    .input {
+      padding: 7px 10px;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      font-size: 13px;
+      outline: none;
+      flex: 1;
+    }
+    .input:focus { border-color: var(--accent); box-shadow: 0 0 0 2px var(--accent-light); }
+
+    /* --- 待办列表 --- */
+    .todo-list { list-style: none; }
+    .todo-item {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 8px 0;
+      border-bottom: 1px solid var(--border);
+      font-size: 14px;
+    }
+    .todo-item:last-child { border-bottom: none; }
+    .todo-item input[type="checkbox"] {
+      width: 18px; height: 18px;
+      accent-color: var(--accent);
+      cursor: pointer;
+    }
+    .todo-item.done span { text-decoration: line-through; color: var(--text-light); }
+    .todo-add {
+      display: flex;
+      gap: 8px;
+      margin-top: 12px;
+    }
+
+    /* --- 快捷入口卡片 --- */
+    .quick-links {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+      gap: 12px;
+      margin-top: 16px;
+    }
+    .quick-link {
+      background: var(--card-bg);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 18px 14px;
+      cursor: pointer;
+      text-align: center;
+      transition: all 0.15s;
+    }
+    .quick-link:hover {
+      border-color: var(--accent);
+      box-shadow: 0 2px 8px rgba(37,99,235,0.1);
+    }
+    .quick-link .icon { font-size: 28px; margin-bottom: 6px; }
+    .quick-link .label { font-size: 13px; font-weight: 500; }
+
+    /* --- 时间线 --- */
+    .timeline { position: relative; padding-left: 24px; }
+    .timeline::before {
+      content: "";
+      position: absolute;
+      left: 8px; top: 4px; bottom: 4px;
+      width: 2px;
+      background: var(--border);
+    }
+    .tl-item {
+      position: relative;
+      padding: 10px 0 10px 20px;
+      display: flex;
+      align-items: flex-start;
+      gap: 10px;
+    }
+    .tl-item::before {
+      content: "";
+      position: absolute;
+      left: -20px; top: 16px;
+      width: 10px; height: 10px;
+      border-radius: 50%;
+      background: var(--accent);
+      border: 2px solid #fff;
+      box-shadow: 0 0 0 2px var(--accent);
+    }
+    .tl-time {
+      font-weight: 600;
+      font-size: 13px;
+      color: var(--accent);
+      min-width: 48px;
+    }
+    .tl-content { font-size: 14px; flex: 1; }
+    .tl-item.done .tl-content { text-decoration: line-through; color: var(--text-light); }
+    .tl-item.done::before { background: var(--green); box-shadow: 0 0 0 2px var(--green); }
+
+    /* --- 表格 --- */
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 13px;
+    }
+    th, td {
+      text-align: left;
+      padding: 10px 12px;
+      border-bottom: 1px solid var(--border);
+    }
+    th {
+      font-weight: 600;
+      color: var(--text-light);
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+    tr:hover td { background: #f9fafb; }
+
+    /* --- 步骤条 --- */
+    .steps { counter-reset: step; }
+    .step {
+      display: flex;
+      gap: 14px;
+      padding: 12px 0;
+      counter-increment: step;
+      border-bottom: 1px solid var(--border);
+    }
+    .step:last-child { border-bottom: none; }
+    .step-num {
+      width: 28px; height: 28px;
+      border-radius: 50%;
+      background: var(--accent);
+      color: #fff;
+      font-size: 13px;
+      font-weight: 700;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+    }
+    .step-body { font-size: 14px; }
+    .step-title { font-weight: 600; margin-bottom: 2px; }
+    .step-desc { color: var(--text-light); font-size: 13px; }
+
+    /* --- 笔记网格 --- */
+    .note-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+      gap: 14px;
+    }
+    .note-card {
+      background: var(--card-bg);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 16px;
+    }
+    .note-card h4 { font-size: 14px; margin-bottom: 8px; color: var(--accent); }
+    .note-card ul { font-size: 13px; padding-left: 18px; color: var(--text-light); }
+    .note-card li { margin-bottom: 4px; }
+
+    /* --- 标签 --- */
+    .tag {
+      display: inline-block;
+      padding: 2px 8px;
+      border-radius: 4px;
+      font-size: 11px;
+      font-weight: 500;
+    }
+    .tag.blue   { background: #dbeafe; color: #1d4ed8; }
+    .tag.green  { background: #d1fae5; color: #047857; }
+    .tag.purple { background: #ede9fe; color: #6d28d9; }
+    .tag.orange { background: #fff7ed; color: #c2410c; }
+
+    /* --- 搜索框 --- */
+    .search-box {
+      display: flex;
+      gap: 8px;
+      margin-bottom: 16px;
+    }
+    .location-list {
+      list-style: none;
+      font-size: 14px;
+    }
+    .location-list li {
+      padding: 10px 12px;
+      border-radius: 6px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      border-bottom: 1px solid var(--border);
+    }
+    .location-list li:hover { background: #f9fafb; }
+    .location-list .loc-name { font-weight: 500; }
+    .location-list .loc-desc { color: var(--text-light); font-size: 12px; }
+
+    /* --- FAQ折叠 --- */
+    .faq-item {
+      border-bottom: 1px solid var(--border);
+      padding: 12px 0;
+    }
+    .faq-q {
+      font-size: 14px;
+      font-weight: 500;
+      cursor: pointer;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .faq-a {
+      font-size: 13px;
+      color: var(--text-light);
+      margin-top: 6px;
+      display: none;
+      line-height: 1.6;
+    }
+    .faq-item.open .faq-a { display: block; }
+
+    /* ========== 手机适配 ========== */
+    @media (max-width: 768px) {
+      .sidebar {
+        transform: translateX(-100%);
+        transition: transform 0.25s;
+      }
+      .sidebar.open { transform: translateX(0); }
+      .menu-toggle { display: flex; align-items: center; justify-content: center; }
+      .main {
+        margin-left: 0;
+        padding: 60px 16px 32px;
+      }
+      .quick-links { grid-template-columns: repeat(2, 1fr); }
+      .note-grid { grid-template-columns: 1fr; }
+    }
+
+    /* --- 打印友好（需要时 Ctrl+P）--- */
+    @media print {
+      .sidebar, .menu-toggle { display: none; }
+      .main { margin-left: 0; }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- ==================== 手机汉堡菜单按钮 ==================== -->
+  <button class="menu-toggle" onclick="toggleSidebar()" title="菜单">☰</button>
+
+  <!-- ==================== 左侧导航栏 ==================== -->
+  <nav class="sidebar" id="sidebar">
+    <div class="sidebar-logo">
+      <h2>📋 工作助手</h2>
+      <span>珠海科技学院</span>
+    </div>
+    <div class="nav-item active" data-page="dashboard" onclick="switchPage('dashboard')">
+      <span class="nav-icon">🏠</span> 今日仪表盘
+    </div>
+    <div class="nav-item" data-page="schedule" onclick="switchPage('schedule')">
+      <span class="nav-icon">⏰</span> 每日工作流
+    </div>
+    <div class="nav-item" data-page="campus" onclick="switchPage('campus')">
+      <span class="nav-icon">🗺️</span> 校园地图
+    </div>
+    <div class="nav-item" data-page="reimburse" onclick="switchPage('reimburse')">
+      <span class="nav-icon">💰</span> 报销指南
+    </div>
+    <div class="nav-item" data-page="apps" onclick="switchPage('apps')">
+      <span class="nav-icon">📱</span> App 大全
+    </div>
+    <div class="nav-item" data-page="notes" onclick="switchPage('notes')">
+      <span class="nav-icon">📝</span> 工作笔记
+    </div>
+  </nav>
+
+  <!-- ==================== 主内容区 ==================== -->
+  <main class="main">
+
+    <!-- ===== 页面1：今日仪表盘 ===== -->
+    <section class="page active" id="page-dashboard">
+      <h1 class="page-title">🏠 今日仪表盘</h1>
+      <p class="page-subtitle" id="today-date">加载中…</p>
+
+      <!-- 快捷入口 -->
+      <div class="card">
+        <h3>🚀 快捷入口</h3>
+        <div class="quick-links">
+          <div class="quick-link" onclick="switchPage('schedule')">
+            <div class="icon">⏰</div>
+            <div class="label">每日工作流</div>
+          </div>
+          <div class="quick-link" onclick="switchPage('reimburse')">
+            <div class="icon">💰</div>
+            <div class="label">报销指南</div>
+          </div>
+          <div class="quick-link" onclick="switchPage('campus')">
+            <div class="icon">🗺️</div>
+            <div class="label">校园地图</div>
+          </div>
+          <div class="quick-link" onclick="switchPage('apps')">
+            <div class="icon">📱</div>
+            <div class="label">App大全</div>
+          </div>
+          <div class="quick-link" onclick="switchPage('notes')">
+            <div class="icon">📝</div>
+            <div class="label">工作笔记</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 今日待办 -->
+      <div class="card">
+        <h3>✅ 今日待办</h3>
+        <ul class="todo-list" id="todo-list"></ul>
+        <div class="todo-add">
+          <input class="input" type="text" id="todo-input" placeholder="添加新的待办事项…" onkeydown="if(event.key==='Enter')addTodo()">
+          <button class="btn primary" onclick="addTodo()">＋ 添加</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- ===== 页面2：每日工作流 ===== -->
+    <section class="page" id="page-schedule">
+      <h1 class="page-title">⏰ 每日工作流</h1>
+      <p class="page-subtitle">按时间线排列的日常工作，点击勾选标记完成</p>
+
+      <div class="card">
+        <h3>📅 日常时间表</h3>
+        <div class="timeline" id="timeline"></div>
+      </div>
+    </section>
+
+    <!-- ===== 页面3：校园地图 ===== -->
+    <section class="page" id="page-campus">
+      <h1 class="page-title">🗺️ 校园地图</h1>
+      <p class="page-subtitle">重要地点速查 · 点击查看详情</p>
+
+      <!-- 预留地图图片位置 -->
+      <div class="card" style="text-align:center;padding:40px;">
+        <div style="font-size:48px;margin-bottom:8px;">🗺️</div>
+        <p style="color:var(--text-light);">📌 校园地图图片预留位</p>
+        <p style="color:var(--text-light);font-size:12px;">后续可将地图截图/照片放在这里</p>
+      </div>
+
+      <!-- 地点搜索 -->
+      <div class="card">
+        <h3>📍 地点速查</h3>
+        <div class="search-box">
+          <input class="input" type="text" id="campus-search" placeholder="输入地点名称搜索…" oninput="filterLocations()">
+        </div>
+        <ul class="location-list" id="location-list"></ul>
+      </div>
+    </section>
+
+    <!-- ===== 页面4：报销指南 ===== -->
+    <section class="page" id="page-reimburse">
+      <h1 class="page-title">💰 报销指南</h1>
+      <p class="page-subtitle">财务报销流程 · 步步清晰</p>
+
+      <div class="card">
+        <h3>📋 报销流程</h3>
+        <div class="steps" id="reimburse-steps"></div>
+      </div>
+
+      <div class="card">
+        <h3>📎 所需材料清单</h3>
+        <ul class="todo-list" id="material-list"></ul>
+      </div>
+
+      <div class="card">
+        <h3>❓ 常见问题</h3>
+        <div id="faq-list"></div>
+      </div>
+    </section>
+
+    <!-- ===== 页面5：App大全 ===== -->
+    <section class="page" id="page-apps">
+      <h1 class="page-title">📱 App 大全</h1>
+      <p class="page-subtitle">在珠海科技学院工作常用App一览</p>
+
+      <div class="card">
+        <h3>📲 应用目录</h3>
+        <div style="overflow-x:auto;">
+          <table>
+            <thead>
+              <tr><th>分类</th><th>做什么事</th><th>用什么App</th><th>说明</th></tr>
+            </thead>
+            <tbody id="app-table-body"></tbody>
+          </table>
+        </div>
+        <p style="color:var(--text-light);font-size:12px;margin-top:12px;">💡 提示：后续可以根据实际使用情况补充和修改</p>
+      </div>
+    </section>
+
+    <!-- ===== 页面6：工作笔记 ===== -->
+    <section class="page" id="page-notes">
+      <h1 class="page-title">📝 工作笔记</h1>
+      <p class="page-subtitle">零散的工作信息和备忘</p>
+
+      <div class="card">
+        <h3>➕ 新增笔记</h3>
+        <div style="display:flex;gap:8px;">
+          <input class="input" type="text" id="note-title" placeholder="笔记标题">
+          <input class="input" type="text" id="note-content" placeholder="内容…" onkeydown="if(event.key==='Enter')addNote()">
+          <button class="btn primary" onclick="addNote()">添加</button>
+        </div>
+      </div>
+
+      <div class="note-grid" id="note-grid"></div>
+    </section>
+
+  </main>
+
+  <!-- ==================== JavaScript - 网页的"大脑" ==================== -->
+  <script>
+    /* ============================================
+       所有数据都存在这里，你可以直接修改这些内容！
+       ============================================ */
+
+    // --- 每日时间表数据 ---
+    const scheduleData = [
+      { time: "08:00", content: "到校打卡", done: false },
+      { time: "08:30", content: "查看当日邮件和OA通知", done: false },
+      { time: "09:00", content: "检查今日待办，规划工作优先级", done: false },
+      { time: "10:00", content: "教学/行政事务处理", done: false },
+      { time: "12:00", content: "午餐 & 午休", done: false },
+      { time: "14:00", content: "下午工作会议/任务执行", done: false },
+      { time: "16:00", content: "整理当日工作记录", done: false },
+      { time: "17:30", content: "检查明日待办，下班打卡", done: false },
+    ];
+
+    // --- 校园地点数据 ---
+    const locationsData = [
+      { name: "行政楼", desc: "人事处、财务处、校办所在", icon: "🏛️" },
+      { name: "第一教学楼", desc: "公共课、大课教室", icon: "🏫" },
+      { name: "第二教学楼", desc: "专业课教室为主", icon: "🏫" },
+      { name: "图书馆", desc: "开放时间 8:00-22:00", icon: "📚" },
+      { name: "食堂（一饭）", desc: "一楼大众餐，二楼风味档口", icon: "🍽️" },
+      { name: "食堂（二饭）", desc: "麻辣烫、煲仔饭人气最高", icon: "🍽️" },
+      { name: "体育馆", desc: "羽毛球、篮球、健身房", icon: "🏟️" },
+      { name: "医务室", desc: "位于学生宿舍3栋一楼", icon: "🏥" },
+      { name: "菜鸟驿站", desc: "快递收发点", icon: "📦" },
+      { name: "校门口保安亭", desc: "访客登记、车辆出入", icon: "🚧" },
+    ];
+
+    // --- 报销步骤数据 ---
+    const reimburseSteps = [
+      { title: "整理票据", desc: "收集发票、收据、支付凭证，按日期排序，确保金额清晰可辨" },
+      { title: "填写报销单", desc: "在OA系统或纸质报销单上填写报销事由、金额、日期等信息" },
+      { title: "部门负责人审批", desc: "将报销单提交给直属领导签字审批" },
+      { title: "财务审核", desc: "财务处审核票据真实性、合规性和金额准确性" },
+      { title: "领导终审", desc: "根据金额大小，可能需要分管校领导或校长审批" },
+      { title: "财务打款", desc: "审核通过后，财务处将款项打入个人工资卡" },
+    ];
+
+    // --- 报销材料清单 ---
+    const materialsData = [
+      "发票/收据原件（电子发票需打印）",
+      "支付凭证（微信/支付宝/银行卡截图）",
+      "报销申请单（OA或纸质）",
+      "出差申请单（差旅报销时需提供）",
+      "采购合同/比价单（大额采购时需提供）",
+      "身份证复印件（首次报销或大额时）",
+    ];
+
+    // --- FAQ数据 ---
+    const faqData = [
+      { q: "电子发票可以报销吗？", a: "可以。电子发票与纸质发票具有同等法律效力，直接打印即可作为报销凭证。" },
+      { q: "报销多久能到账？", a: "一般审核通过后 5-10 个工作日到账，大额报销可能需要 15-20 个工作日。" },
+      { q: "发票丢失了怎么办？", a: "联系开票方补开发票或提供加盖公章的发票复印件，同时填写《发票丢失说明》。" },
+      { q: "多少金额需要领导审批？", a: "一般 2000 元以下部门负责人审批即可，2000-10000 元需分管校领导审批，10000 元以上需校长审批。具体以学校最新财务制度为准。" },
+    ];
+
+    // --- App数据 ---
+    const appsData = [
+      { cat: "教学", task: "发布课程资料", app: "超星学习通", note: "学生端同步查看" },
+      { cat: "教学", task: "课堂签到/互动", app: "雨课堂", note: "PPT插件+微信小程序" },
+      { cat: "行政", task: "OA审批/公文", app: "学校OA系统", note: "电脑端+手机端" },
+      { cat: "行政", task: "工资条查询", app: "企业微信", note: "绑定学校账号" },
+      { cat: "行政", task: "会议室预约", app: "OA-会议管理", note: "提前1天预约" },
+      { cat: "行政", task: "图书借阅查询", app: "图书馆微信公众号", note: "可续借" },
+      { cat: "生活", task: "校园卡充值", app: "支付宝-校园生活", note: "搜"珠海科技学院"" },
+      { cat: "生活", task: "食堂消费", app: "校园卡/微信/支付宝", note: "扫码支付" },
+      { cat: "生活", task: "电费充值", app: "企业微信-后勤服务", note: "宿舍电费" },
+      { cat: "出行", task: "校车时刻表", app: "企业微信-班车服务", note: "查看实时位置" },
+    ];
+
+    /* ============================================
+       下面都是功能性代码，现在不用全懂，知道每块干嘛就行
+       ============================================ */
+
+    // ========== 初始化：页面加载时执行 ==========
+    function init() {
+      // 显示今日日期
+      const now = new Date();
+      const weekdays = ["日","一","二","三","四","五","六"];
+      document.getElementById("today-date").textContent =
+        `${now.getFullYear()}年${now.getMonth()+1}月${now.getDate()}日 · 星期${weekdays[now.getDay()]} · 📍珠海科技学院`;
+
+      renderTodoList();
+      renderTimeline();
+      renderLocations(locationsData);
+      renderReimburseSteps();
+      renderMaterials();
+      renderFAQ();
+      renderAppTable();
+      renderNotes();
+    }
+
+    // ========== 页面切换 ==========
+    function switchPage(pageName) {
+      // 切换侧边栏高亮
+      document.querySelectorAll(".nav-item").forEach(el => el.classList.remove("active"));
+      const navItem = document.querySelector(`[data-page="${pageName}"]`);
+      if (navItem) navItem.classList.add("active");
+
+      // 切换内容区
+      document.querySelectorAll(".page").forEach(el => el.classList.remove("active"));
+      const page = document.getElementById(`page-${pageName}`);
+      if (page) page.classList.add("active");
+
+      // 手机端自动关闭侧边栏
+      document.getElementById("sidebar").classList.remove("open");
+    }
+
+    // 手机端侧边栏开关
+    function toggleSidebar() {
+      document.getElementById("sidebar").classList.toggle("open");
+    }
+
+    // ========== 待办事项 ==========
+    function getTodos() {
+      const raw = localStorage.getItem("work-assistant-todos");
+      return raw ? JSON.parse(raw) : [];
+    }
+    function saveTodos(todos) { localStorage.setItem("work-assistant-todos", JSON.stringify(todos)); }
+
+    function renderTodoList() {
+      const list = document.getElementById("todo-list");
+      const todos = getTodos();
+      list.innerHTML = todos.length === 0
+        ? `<li style="color:var(--text-light);font-size:13px;padding:8px 0;">还没有待办事项，在下方添加一个吧 👇</li>`
+        : todos.map((t, i) => `
+          <li class="todo-item ${t.done ? 'done' : ''}">
+            <input type="checkbox" ${t.done ? 'checked' : ''} onchange="toggleTodo(${i})">
+            <span style="flex:1;">${escapeHtml(t.text)}</span>
+            <button class="btn danger small" onclick="deleteTodo(${i})">✕</button>
+          </li>`).join("");
+    }
+
+    function addTodo() {
+      const input = document.getElementById("todo-input");
+      const text = input.value.trim();
+      if (!text) return;
+      const todos = getTodos();
+      todos.push({ text, done: false });
+      saveTodos(todos);
+      input.value = "";
+      renderTodoList();
+    }
+
+    function toggleTodo(index) {
+      const todos = getTodos();
+      if (todos[index]) {
+        todos[index].done = !todos[index].done;
+        saveTodos(todos);
+        renderTodoList();
+      }
+    }
+
+    function deleteTodo(index) {
+      const todos = getTodos();
+      todos.splice(index, 1);
+      saveTodos(todos);
+      renderTodoList();
+    }
+
+    // ========== 时间线 ==========
+    function getSchedule() {
+      const raw = localStorage.getItem("work-assistant-schedule");
+      if (raw) {
+        const saved = JSON.parse(raw);
+        // 合并默认数据（如果新增了时间项）
+        return scheduleData.map((d, i) => saved[i] ? { ...d, done: saved[i].done } : d);
+      }
+      return scheduleData;
+    }
+    function saveSchedule(s) { localStorage.setItem("work-assistant-schedule", JSON.stringify(s)); }
+
+    function renderTimeline() {
+      const container = document.getElementById("timeline");
+      const s = getSchedule();
+      container.innerHTML = s.map((item, i) => `
+        <div class="tl-item ${item.done ? 'done' : ''}" onclick="toggleSchedule(${i})" style="cursor:pointer;">
+          <span class="tl-time">${item.time}</span>
+          <span class="tl-content">${item.content}</span>
+        </div>`).join("");
+    }
+
+    function toggleSchedule(index) {
+      const s = getSchedule();
+      s[index].done = !s[index].done;
+      saveSchedule(s);
+      renderTimeline();
+    }
+
+    // ========== 校园地点 ==========
+    function renderLocations(list) {
+      document.getElementById("location-list").innerHTML = list.map(l => `
+        <li>
+          <span style="font-size:18px;">${l.icon}</span>
+          <span class="loc-name">${l.name}</span>
+          <span class="loc-desc">— ${l.desc}</span>
+        </li>`).join("");
+    }
+
+    function filterLocations() {
+      const keyword = document.getElementById("campus-search").value.trim().toLowerCase();
+      const filtered = keyword
+        ? locationsData.filter(l => l.name.includes(keyword) || l.desc.includes(keyword))
+        : locationsData;
+      renderLocations(filtered);
+    }
+
+    // ========== 报销步骤 ==========
+    function renderReimburseSteps() {
+      document.getElementById("reimburse-steps").innerHTML = reimburseSteps.map((s, i) => `
+        <div class="step">
+          <div class="step-num">${i+1}</div>
+          <div class="step-body">
+            <div class="step-title">${s.title}</div>
+            <div class="step-desc">${s.desc}</div>
+          </div>
+        </div>`).join("");
+    }
+
+    function renderMaterials() {
+      document.getElementById("material-list").innerHTML = materialsData.map(m => `
+        <li class="todo-item"><span>📎 ${m}</span></li>`).join("");
+    }
+
+    function renderFAQ() {
+      document.getElementById("faq-list").innerHTML = faqData.map((f, i) => `
+        <div class="faq-item" onclick="this.classList.toggle('open')">
+          <div class="faq-q">${f.q} <span style="font-size:12px;">▾</span></div>
+          <div class="faq-a">${f.a}</div>
+        </div>`).join("");
+    }
+
+    // ========== App表格 ==========
+    function renderAppTable() {
+      document.getElementById("app-table-body").innerHTML = appsData.map(a => {
+        const tagColors = { "教学": "blue", "行政": "purple", "生活": "green", "出行": "orange" };
+        const color = tagColors[a.cat] || "blue";
+        return `<tr>
+          <td><span class="tag ${color}">${a.cat}</span></td>
+          <td>${a.task}</td>
+          <td><strong>${a.app}</strong></td>
+          <td style="color:var(--text-light);">${a.note}</td>
+        </tr>`;
+      }).join("");
+    }
+
+    // ========== 笔记 ==========
+    function getNotes() {
+      const raw = localStorage.getItem("work-assistant-notes");
+      return raw ? JSON.parse(raw) : [];
+    }
+    function saveNotes(notes) { localStorage.setItem("work-assistant-notes", JSON.stringify(notes)); }
+
+    function renderNotes() {
+      const container = document.getElementById("note-grid");
+      const notes = getNotes();
+      container.innerHTML = notes.length === 0
+        ? `<div style="color:var(--text-light);font-size:13px;grid-column:1/-1;">还没有笔记，在上方添加第一条吧 ✍️</div>`
+        : notes.map((n, i) => `
+          <div class="note-card">
+            <h4>📌 ${escapeHtml(n.title)}</h4>
+            <p style="font-size:13px;color:var(--text-light);">${escapeHtml(n.content)}</p>
+            <button class="btn danger small" style="margin-top:8px;" onclick="deleteNote(${i})">删除</button>
+          </div>`).join("");
+    }
+
+    function addNote() {
+      const titleEl = document.getElementById("note-title");
+      const contentEl = document.getElementById("note-content");
+      const title = titleEl.value.trim();
+      const content = contentEl.value.trim();
+      if (!title || !content) return;
+      const notes = getNotes();
+      notes.unshift({ title, content, date: new Date().toLocaleDateString("zh-CN") });
+      saveNotes(notes);
+      titleEl.value = "";
+      contentEl.value = "";
+      renderNotes();
+    }
+
+    function deleteNote(index) {
+      const notes = getNotes();
+      notes.splice(index, 1);
+      saveNotes(notes);
+      renderNotes();
+    }
+
+    // --- 小工具：防止XSS ---
+    function escapeHtml(str) {
+      const div = document.createElement("div");
+      div.textContent = str;
+      return div.innerHTML;
+    }
+
+    // ========== 启动！ ==========
+    init();
+  </script>
+</body>
+</html>
