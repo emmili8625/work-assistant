@@ -326,7 +326,7 @@
   <!-- ==================== 左侧导航 ==================== -->
   <nav class="sidebar" id="sidebar">
     <div class="sidebar-logo">
-      <h2>📋 工作助手 <span style="font-size:10px;color:#666;">v22</span></h2>
+      <h2>📋 工作助手 <span style="font-size:10px;color:#666;">v23</span></h2>
       <span>珠海科技学院</span>
     </div>
 
@@ -686,7 +686,8 @@
                   onkeydown="if(event.metaKey && event.key==='Enter')addQuickNote()"
                   onpaste="handleQuicknotePaste(event)"></textarea>
         <div id="quicknote-preview" style="margin-top:6px;"></div>
-        <button class="btn primary" style="margin-top:8px;" onclick="addQuickNote()">💾 保存</button>
+        <button class="btn primary" style="margin-top:8px;" id="quicknote-save-btn" onclick="addQuickNote()">💾 保存</button>
+        <button class="btn" style="margin-top:8px;display:none;" id="quicknote-cancel-btn" onclick="cancelQuickNoteEdit()">取消</button>
       </div>
 
       <div id="quicknote-list"></div>
@@ -701,7 +702,8 @@
         <div style="display:flex;gap:8px;">
           <input class="input" type="text" id="note-title" placeholder="笔记标题">
           <input class="input" type="text" id="note-content" placeholder="内容…" onkeydown="if(event.key==='Enter')addNote()">
-          <button class="btn primary" onclick="addNote()">添加</button>
+          <button class="btn primary" id="note-save-btn" onclick="addNote()">添加</button>
+          <button class="btn" style="display:none;" id="note-cancel-btn" onclick="cancelNoteEdit()">取消</button>
         </div>
       </div>
       <div class="note-grid" id="note-grid"></div>
@@ -1936,7 +1938,8 @@
     function saveLifeTodoEdit(i, newText) { const t = getLifeTodos(); if (t[i]) { t[i].text = newText; saveLifeTodos(t); renderLifeTodos(); } }
 
     // ========== 📝 随手记 ==========
-    let pendingImages = []; // 粘贴图片暂存
+    let pendingImages = [];
+    let editingQuickNoteIdx = -1; // -1 = 新增模式，>=0 = 编辑第几条
 
     function getQuickNotes() {
       const raw = localStorage.getItem("work-assistant-quicknotes");
@@ -1968,7 +1971,7 @@
       document.getElementById("quicknote-list").innerHTML = notes.length === 0
         ? `<div class="card" style="text-align:center;color:var(--text-light);">还没有随手记，在上方写一条吧 ✍️</div>`
         : notes.map((n, i) => `
-          <div class="card" style="position:relative;">
+          <div class="card" style="position:relative;cursor:pointer;" onclick="editQuickNote(${i})" title="点击编辑">
             <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;">
               <strong style="font-size:15px;">${escapeHtml(n.title || '无标题')}</strong>
               <span style="font-size:11px;color:var(--text-light);">${n.date}</span>
@@ -1976,8 +1979,35 @@
             ${n.text ? `<div style="font-size:14px;white-space:pre-wrap;line-height:1.6;margin-bottom:6px;">${escapeHtml(n.text)}</div>` : ''}
             ${(n.images || []).map(img => `<img src="${img}" style="max-width:100%;max-height:300px;margin-top:4px;border-radius:6px;border:1px solid var(--border);">`).join("")}
             <button class="btn danger small" style="position:absolute;top:12px;right:12px;"
-                    onclick="deleteQuickNote(${i})">✕</button>
+                    onclick="event.stopPropagation();deleteQuickNote(${i})">✕</button>
           </div>`).join("");
+    }
+
+    function editQuickNote(idx) {
+      const notes = getQuickNotes();
+      const note = notes[idx];
+      if (!note) return;
+      editingQuickNoteIdx = idx;
+      document.getElementById("quicknote-title").value = note.title || '';
+      document.getElementById("quicknote-input").value = note.text || '';
+      pendingImages = [...(note.images || [])];
+      document.getElementById("quicknote-preview").innerHTML = (note.images || []).map(img =>
+        `<img src="${img}" style="max-width:150px;max-height:100px;margin:4px;border-radius:6px;border:1px solid var(--border);">`
+      ).join("");
+      document.getElementById("quicknote-save-btn").textContent = "✏️ 更新";
+      document.getElementById("quicknote-cancel-btn").style.display = "inline-flex";
+      document.getElementById("quicknote-input").focus();
+      window.scrollTo({ top: 0, behavior: "smooth" });
+    }
+
+    function cancelQuickNoteEdit() {
+      editingQuickNoteIdx = -1;
+      document.getElementById("quicknote-title").value = "";
+      document.getElementById("quicknote-input").value = "";
+      pendingImages = [];
+      document.getElementById("quicknote-preview").innerHTML = "";
+      document.getElementById("quicknote-save-btn").textContent = "💾 保存";
+      document.getElementById("quicknote-cancel-btn").style.display = "none";
     }
 
     function addQuickNote() {
@@ -1987,18 +2017,31 @@
       const text = input.value.trim();
       const hasImages = pendingImages.length > 0;
       if (!text && !hasImages) return;
-      // 没填标题：自动取内容前20字作为标题
+      // 没填标题：自动取内容前20字
       if (!title && text) {
         title = text.replace(/\s+/g, ' ').slice(0, 20) + (text.length > 20 ? '…' : '');
       }
       if (!title && hasImages) title = '图片笔记';
+
       const notes = getQuickNotes();
-      notes.unshift({
-        title,
-        text,
-        images: [...pendingImages],
-        date: new Date().toLocaleString("zh-CN", { month:"numeric", day:"numeric", hour:"2-digit", minute:"2-digit" })
-      });
+      if (editingQuickNoteIdx >= 0) {
+        // 编辑模式：更新已有笔记
+        const note = notes[editingQuickNoteIdx];
+        note.title = title;
+        note.text = text;
+        note.images = [...pendingImages];
+        // 保持原日期
+        editingQuickNoteIdx = -1;
+        document.getElementById("quicknote-save-btn").textContent = "💾 保存";
+        document.getElementById("quicknote-cancel-btn").style.display = "none";
+      } else {
+        // 新增模式
+        notes.unshift({
+          title, text,
+          images: [...pendingImages],
+          date: new Date().toLocaleString("zh-CN", { month:"numeric", day:"numeric", hour:"2-digit", minute:"2-digit" })
+        });
+      }
       saveQuickNotes(notes);
       titleEl.value = "";
       input.value = "";
@@ -2094,6 +2137,8 @@
     }
 
     // ========== 📌 工作笔记 ==========
+    let editingNoteIdx = -1;
+
     function getNotes() {
       const raw = localStorage.getItem("work-assistant-notes");
       return raw ? JSON.parse(raw) : [];
@@ -2105,17 +2150,46 @@
       document.getElementById("note-grid").innerHTML = notes.length === 0
         ? `<div style="color:var(--text-light);font-size:13px;grid-column:1/-1;">还没有笔记，在上方添加第一条吧 ✍️</div>`
         : notes.map((n, i) => `
-          <div class="note-card">
+          <div class="note-card" style="cursor:pointer;" onclick="editWorkNote(${i})" title="点击编辑">
             <h4>📌 ${escapeHtml(n.title)}</h4>
             <p style="font-size:13px;color:var(--text-light);">${escapeHtml(n.content)}</p>
-            <button class="btn danger small" style="margin-top:8px;" onclick="deleteNote(${i})">删除</button></div>`).join("");
+            <button class="btn danger small" style="margin-top:8px;" onclick="event.stopPropagation();deleteNote(${i})">删除</button></div>`).join("");
+    }
+
+    function editWorkNote(idx) {
+      const notes = getNotes();
+      const note = notes[idx];
+      if (!note) return;
+      editingNoteIdx = idx;
+      document.getElementById("note-title").value = note.title || '';
+      document.getElementById("note-content").value = note.content || '';
+      document.getElementById("note-save-btn").textContent = "✏️ 更新";
+      document.getElementById("note-cancel-btn").style.display = "inline-flex";
+      document.getElementById("note-title").focus();
+    }
+
+    function cancelNoteEdit() {
+      editingNoteIdx = -1;
+      document.getElementById("note-title").value = "";
+      document.getElementById("note-content").value = "";
+      document.getElementById("note-save-btn").textContent = "添加";
+      document.getElementById("note-cancel-btn").style.display = "none";
     }
 
     function addNote() {
       const titleEl = document.getElementById("note-title"), contentEl = document.getElementById("note-content");
       const title = titleEl.value.trim(), content = contentEl.value.trim();
       if (!title || !content) return;
-      const notes = getNotes(); notes.unshift({ title, content, date: new Date().toLocaleDateString("zh-CN") });
+      const notes = getNotes();
+      if (editingNoteIdx >= 0) {
+        notes[editingNoteIdx].title = title;
+        notes[editingNoteIdx].content = content;
+        editingNoteIdx = -1;
+        document.getElementById("note-save-btn").textContent = "添加";
+        document.getElementById("note-cancel-btn").style.display = "none";
+      } else {
+        notes.unshift({ title, content, date: new Date().toLocaleDateString("zh-CN") });
+      }
       saveNotes(notes); titleEl.value = ""; contentEl.value = ""; renderNotes();
     }
 
