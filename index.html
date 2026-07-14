@@ -326,7 +326,7 @@
   <!-- ==================== 左侧导航 ==================== -->
   <nav class="sidebar" id="sidebar">
     <div class="sidebar-logo">
-      <h2>📋 工作助手 <span style="font-size:10px;color:#666;">v29</span></h2>
+      <h2>📋 工作助手 <span style="font-size:10px;color:#666;">v30</span></h2>
       <span>珠海科技学院</span>
     </div>
 
@@ -2013,7 +2013,7 @@
       } else if (recorderState === "recording") {
         micBtn.style.display = "none";
         const elapsed = Math.floor((Date.now() - recordingStartTime) / 1000);
-        status.textContent = "\u{1F534} 录音中 " + Math.floor(elapsed/60) + ":" + String(elapsed%60).padStart(2,"0");
+        status.textContent = "🔴 录音中 " + Math.floor(elapsed/60) + ":" + String(elapsed%60).padStart(2,"0");
         status.style.display = "inline";
         if (stopBtn) stopBtn.style.display = "inline-flex";
         if (pauseBtn) { pauseBtn.textContent = "\u23F8 暂停"; pauseBtn.style.display = "inline-flex"; }
@@ -2030,7 +2030,7 @@
       pendingImages.push(audioURL);
       const dur = Math.max(1, Math.round(audioChunks.reduce((s,c) => s + c.size, 0) / 16000));
       preview.innerHTML += '<div style="background:#f0f4ff;border-radius:8px;padding:8px;margin-top:4px;display:flex;align-items:center;gap:8px;">' +
-        '<span style="font-size:12px;">\u{1F3B5} 录音 ~' + dur + '秒</span>' +
+        '<span style="font-size:12px;">🎵 录音 ~' + dur + '秒</span>' +
         '<audio controls src="' + audioURL + '" style="flex:1;max-width:300px;height:28px;"></audio>' +
         '<button class="btn danger small" onclick="this.parentElement.remove()">\u2715</button></div>';
     }
@@ -2047,12 +2047,12 @@
         result = sentences.slice(0, 3).map((s,i) => (i+1) + ". " + s.trim()).join("\n");
       } else if (way === "3") {
         const words = text.replace(/[，。！？\n\s]/g, " ").split(" ").filter(w => w.length >= 2).slice(0, 10);
-        result = "\u{1F4CC} " + words.join("、");
+        result = "📌 " + words.join("、");
       } else {
-        result = "\u{1F4CC} " + sentences.map((s,i) => (i+1) + ". " + s.trim()).join("\n");
+        result = "📌 " + sentences.map((s,i) => (i+1) + ". " + s.trim()).join("\n");
       }
       const input2 = document.getElementById("quicknote-input");
-      input2.value = input2.value + "\n\n---\n\u{1F4DD} 总结：\n" + result;
+      input2.value = input2.value + "\n\n---\n📝 总结：\n" + result;
     }
 
 
