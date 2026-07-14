@@ -326,7 +326,7 @@
   <!-- ==================== 左侧导航 ==================== -->
   <nav class="sidebar" id="sidebar">
     <div class="sidebar-logo">
-      <h2>📋 工作助手 <span style="font-size:10px;color:#666;">v26</span></h2>
+      <h2>📋 工作助手 <span style="font-size:10px;color:#666;">v27</span></h2>
       <span>珠海科技学院</span>
     </div>
 
@@ -355,10 +355,6 @@
     <!-- 学习 -->
     <div class="nav-item" data-page="study" onclick="switchPage('study')">
       <span class="nav-icon">📖</span> 学习备考
-    </div>
-    <!-- 生活 -->
-    <div class="nav-item" data-page="life" onclick="switchPage('life')">
-      <span class="nav-icon">🏡</span> 生活琐事
     </div>
     <div class="nav-item" data-page="quicknotes" onclick="switchPage('quicknotes')">
       <span class="nav-icon">📝</span> 随手记
@@ -393,7 +389,6 @@
           <div class="quick-link" onclick="switchPage('apps')"><div class="icon">📱</div><div class="label">App大全</div></div>
           <div class="quick-link" onclick="switchPage('notes')"><div class="icon">📌</div><div class="label">工作笔记</div></div>
           <div class="quick-link" onclick="switchPage('study')"><div class="icon">📖</div><div class="label">学习备考</div></div>
-          <div class="quick-link" onclick="switchPage('life')"><div class="icon">🏡</div><div class="label">生活琐事</div></div>
         </div>
       </div>
 
@@ -658,21 +653,6 @@
       </div>
     </section>
 
-    <!-- ===== 生活琐事 ===== -->
-    <section class="page" id="page-life">
-      <h1 class="page-title">🏡 生活琐事</h1>
-      <p class="page-subtitle">快递、缴费、购物…生活小事不遗漏</p>
-
-      <div class="card">
-        <h3>📦 待办琐事</h3>
-        <ul class="todo-list" id="life-todo-list"></ul>
-        <div class="todo-add">
-          <input class="input" type="text" id="life-todo-input" placeholder="比如：去菜鸟驿站拿快递…" onkeydown="if(event.key==='Enter')addLifeTodo()">
-          <button class="btn primary" onclick="addLifeTodo()">＋ 添加</button>
-        </div>
-      </div>
-    </section>
-
     <!-- ===== 随手记 ===== -->
     <section class="page" id="page-quicknotes">
       <h1 class="page-title">📝 随手记</h1>
@@ -881,7 +861,7 @@
         "work-assistant-todos", "work-assistant-all-tags", "work-assistant-calendar",
         "work-assistant-today", "work-assistant-week-todos", "work-assistant-month-todos",
         "work-assistant-semester-todos", "work-assistant-subjects", "work-assistant-study-todos",
-        "work-assistant-resources", "work-assistant-life-todos", "work-assistant-quicknotes",
+        "work-assistant-resources", "work-assistant-quicknotes",
         "work-assistant-notes", "work-assistant-archives", "work-assistant-exams",
       ];
       for (const key of KEYS) {
@@ -922,7 +902,6 @@
       renderCountdowns();
       renderStudyTodos();
       renderResources();
-      renderLifeTodos();
       renderQuickNotes();
       renderNotes();
       renderArchiveList();
@@ -1912,33 +1891,6 @@
 
     function deleteResource(i) { const r = getResources(); r.splice(i, 1); saveResources(r); renderResources(); }
 
-    // ========== 🏡 生活琐事 ==========
-    function getLifeTodos() {
-      const raw = localStorage.getItem("work-assistant-life-todos");
-      return raw ? JSON.parse(raw) : [
-        { text: "📦 去菜鸟驿站拿快递", done: false },
-      ];
-    }
-    function saveLifeTodos(d) { persist("work-assistant-life-todos", d); }
-
-    function renderLifeTodos() {
-      const todos = getLifeTodos();
-      document.getElementById("life-todo-list").innerHTML = todos.length === 0
-        ? `<li style="color:var(--text-light);font-size:13px;padding:8px 0;">还没有生活琐事，添加一条吧 🏡</li>`
-        : todos.map((t, i) => todoItemHTML(t, i, 'toggleLifeTodo', 'deleteLifeTodo', 'saveLifeTodoEdit')).join("");
-    }
-
-    function addLifeTodo() {
-      const input = document.getElementById("life-todo-input");
-      const text = input.value.trim(); if (!text) return;
-      const t = getLifeTodos(); t.push({ text, done: false }); saveLifeTodos(t);
-      input.value = ""; renderLifeTodos();
-    }
-
-    function toggleLifeTodo(i) { const t = getLifeTodos(); if (t[i]) { t[i].done = !t[i].done; saveLifeTodos(t); renderLifeTodos(); } }
-    function deleteLifeTodo(i) { const t = getLifeTodos(); t.splice(i, 1); saveLifeTodos(t); renderLifeTodos(); }
-    function saveLifeTodoEdit(i, newText) { const t = getLifeTodos(); if (t[i]) { t[i].text = newText; saveLifeTodos(t); renderLifeTodos(); } }
-
     // ========== 🎤 语音识别 ==========
     let recognition = null;
     let isListening = false;
@@ -2182,7 +2134,6 @@
 
       addResults("📝 随手记", getQuickNotes(), n => (n.title||'') + ' ' + (n.text||''), n => n.date, "quicknotes");
       addResults("📌 工作笔记", getNotes(), n => (n.title||'') + ' ' + (n.content||''), n => n.date, "notes");
-      addResults("🏡 生活琐事", getLifeTodos(), t => t.text, null, "life");
       addResults("📖 学习任务", getStudyTodos(), t => t.text, null, "study");
       addResults("📖 考试", getExams(), e => e.name + ' ' + (e.subjects||[]).map(s=>s.name).join(' '), e => e.date, "study");
 
