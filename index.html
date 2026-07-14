@@ -326,7 +326,7 @@
   <!-- ==================== 左侧导航 ==================== -->
   <nav class="sidebar" id="sidebar">
     <div class="sidebar-logo">
-      <h2>📋 工作助手 <span style="font-size:10px;color:#666;">v21</span></h2>
+      <h2>📋 工作助手 <span style="font-size:10px;color:#666;">v22</span></h2>
       <span>珠海科技学院</span>
     </div>
 
@@ -373,6 +373,15 @@
     <section class="page active" id="page-dashboard">
       <h1 class="page-title">🏠 首页仪表盘</h1>
       <p class="page-subtitle" id="today-date">加载中…</p>
+
+      <!-- 全局搜索 -->
+      <div class="card" style="padding:12px 16px;">
+        <div style="display:flex;gap:8px;">
+          <input class="input" type="text" id="global-search" placeholder="🔍 搜任何内容…（待办、笔记、存档、随手记...）" style="font-size:14px;"
+                 oninput="doGlobalSearch()" onkeydown="if(event.key==='Escape'){this.value='';doGlobalSearch();}">
+        </div>
+        <div id="search-results" style="display:none;margin-top:10px;max-height:400px;overflow-y:auto;"></div>
+      </div>
 
       <div class="card">
         <h3>🚀 快捷入口</h3>
@@ -670,6 +679,7 @@
       <p class="page-subtitle">想到什么写什么，极速记录</p>
 
       <div class="card">
+        <input class="input" type="text" id="quicknote-title" placeholder="标题（留空则自动取内容前几个字）" style="width:100%;margin-bottom:8px;font-weight:600;">
         <textarea class="input" id="quicknote-input" rows="3"
                   placeholder="写点什么… Cmd+Enter 保存 | 可粘贴图片 Ctrl+V"
                   style="width:100%;resize:vertical;font-family:inherit;"
@@ -1959,26 +1969,38 @@
         ? `<div class="card" style="text-align:center;color:var(--text-light);">还没有随手记，在上方写一条吧 ✍️</div>`
         : notes.map((n, i) => `
           <div class="card" style="position:relative;">
-            <div style="font-size:11px;color:var(--text-light);margin-bottom:6px;">${n.date}</div>
-            <div style="font-size:14px;white-space:pre-wrap;line-height:1.6;">${escapeHtml(n.text || '')}</div>
-            ${(n.images || []).map(img => `<img src="${img}" style="max-width:100%;max-height:300px;margin-top:8px;border-radius:6px;border:1px solid var(--border);">`).join("")}
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;">
+              <strong style="font-size:15px;">${escapeHtml(n.title || '无标题')}</strong>
+              <span style="font-size:11px;color:var(--text-light);">${n.date}</span>
+            </div>
+            ${n.text ? `<div style="font-size:14px;white-space:pre-wrap;line-height:1.6;margin-bottom:6px;">${escapeHtml(n.text)}</div>` : ''}
+            ${(n.images || []).map(img => `<img src="${img}" style="max-width:100%;max-height:300px;margin-top:4px;border-radius:6px;border:1px solid var(--border);">`).join("")}
             <button class="btn danger small" style="position:absolute;top:12px;right:12px;"
                     onclick="deleteQuickNote(${i})">✕</button>
           </div>`).join("");
     }
 
     function addQuickNote() {
+      const titleEl = document.getElementById("quicknote-title");
       const input = document.getElementById("quicknote-input");
+      let title = titleEl.value.trim();
       const text = input.value.trim();
       const hasImages = pendingImages.length > 0;
       if (!text && !hasImages) return;
+      // 没填标题：自动取内容前20字作为标题
+      if (!title && text) {
+        title = text.replace(/\s+/g, ' ').slice(0, 20) + (text.length > 20 ? '…' : '');
+      }
+      if (!title && hasImages) title = '图片笔记';
       const notes = getQuickNotes();
       notes.unshift({
+        title,
         text,
-        images: [...pendingImages], // 附带的图片
+        images: [...pendingImages],
         date: new Date().toLocaleString("zh-CN", { month:"numeric", day:"numeric", hour:"2-digit", minute:"2-digit" })
       });
       saveQuickNotes(notes);
+      titleEl.value = "";
       input.value = "";
       pendingImages = [];
       document.getElementById("quicknote-preview").innerHTML = "";
@@ -1990,6 +2012,85 @@
       notes.splice(i, 1);
       saveQuickNotes(notes);
       renderQuickNotes();
+    }
+
+    // ========== 🔍 全局搜索 ==========
+    function doGlobalSearch() {
+      const kw = document.getElementById("global-search").value.trim().toLowerCase();
+      const resultsDiv = document.getElementById("search-results");
+      if (!kw || kw.length < 1) { resultsDiv.style.display = "none"; return; }
+
+      const results = [];
+
+      function addResults(source, items, getText, getDate, page, extra) {
+        if (!items || !items.forEach) return;
+        items.forEach((item, i) => {
+          const txt = getText(item).toLowerCase();
+          if (txt.includes(kw)) {
+            results.push({
+              source, page: page || '', extra: extra || '',
+              title: getText(item).slice(0, 60) + (getText(item).length > 60 ? '…' : ''),
+              date: getDate ? (getDate(item) || '') : ''
+            });
+          }
+        });
+      }
+
+      // 搜各模块
+      addResults("🏠 首页待办", getTodos(), t => t.text, null, "dashboard");
+      addResults("⏰ 今日工作", getTodayWork(), t => t.time + ' ' + t.content, null, "work");
+      addResults("📅 本周", getWorkWeek(), t => t.text, t => t.date, "work");
+      addResults("📆 本月", getWorkMonth(), t => t.text, t => t.date, "work");
+      addResults("🎓 本学期", getWorkSemester(), t => t.text, t => t.date, "work");
+
+      // 日历事件
+      const calEvents = getCalEvents();
+      Object.keys(calEvents).forEach(dateStr => {
+        calEvents[dateStr].forEach(t => {
+          if ((t.text || '').toLowerCase().includes(kw)) {
+            results.push({
+              source: "📅 日历", page: "work", extra: dateStr,
+              title: t.text.slice(0, 60), date: dateStr
+            });
+          }
+        });
+      });
+
+      addResults("📝 随手记", getQuickNotes(), n => (n.title||'') + ' ' + (n.text||''), n => n.date, "quicknotes");
+      addResults("📌 工作笔记", getNotes(), n => (n.title||'') + ' ' + (n.content||''), n => n.date, "notes");
+      addResults("🏡 生活琐事", getLifeTodos(), t => t.text, null, "life");
+      addResults("📖 学习任务", getStudyTodos(), t => t.text, null, "study");
+      addResults("📖 考试", getExams(), e => e.name + ' ' + (e.subjects||[]).map(s=>s.name).join(' '), e => e.date, "study");
+
+      getArchives().forEach(a => {
+        const txt = [a.talk,a.dorm,a.check,a.emergency,a.affairs,a.meetings,a.summary,a.plan].join(' ').toLowerCase();
+        if (txt.includes(kw)) results.push({
+          source: "🗂️ 工作存档", page: "archive",
+          title: a.date + ' 工作记录', date: a.date
+        });
+      });
+
+      if (results.length === 0) {
+        resultsDiv.innerHTML = `<p style="color:var(--text-light);font-size:13px;padding:8px;">没有找到匹配「${escapeHtml(kw)}」的内容</p>`;
+      } else {
+        resultsDiv.innerHTML = results.slice(0, 30).map((r, idx) => `
+          <div class="todo-item" style="cursor:pointer;border-radius:6px;padding:8px 10px;" onclick="clearSearchAndGo('${escapeHtml(r.page || '')}', '${escapeHtml(r.extra || '')}')">
+            <span style="font-size:11px;color:var(--text-light);min-width:80px;">${r.source}</span>
+            <span style="flex:1;font-size:13px;">${escapeHtml(r.title)}</span>
+            ${r.date ? `<span style="font-size:11px;color:var(--text-light);">${r.date}</span>` : ''}
+          </div>`).join("");
+      }
+      resultsDiv.style.display = "block";
+    }
+
+    function clearSearchAndGo(page, extra) {
+      document.getElementById("global-search").value = "";
+      document.getElementById("search-results").style.display = "none";
+      switchPage(page);
+      if (extra && page === "work") {
+        // extra 是日历日期，选中它
+        setTimeout(() => { calSelectedDate = extra; renderCalendar(calYear, calMonth); renderCalDayPanel(extra); }, 300);
+      }
     }
 
     // ========== 📌 工作笔记 ==========
