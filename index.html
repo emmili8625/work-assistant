@@ -326,7 +326,7 @@
   <!-- ==================== 左侧导航 ==================== -->
   <nav class="sidebar" id="sidebar">
     <div class="sidebar-logo">
-      <h2>📋 工作助手 <span style="font-size:10px;color:#666;">v25</span></h2>
+      <h2>📋 工作助手 <span style="font-size:10px;color:#666;">v26</span></h2>
       <span>珠海科技学院</span>
     </div>
 
@@ -680,9 +680,9 @@
 
       <div class="card">
         <input class="input" type="text" id="quicknote-title" placeholder="标题（留空则自动取内容前几个字）" style="width:100%;margin-bottom:8px;font-weight:600;">
-        <textarea class="input" id="quicknote-input" rows="3"
-                  placeholder="写点什么… Cmd+Enter 保存 | 可粘贴图片 Ctrl+V"
-                  style="width:100%;resize:vertical;font-family:inherit;"
+        <textarea class="input" id="quicknote-input" rows="8"
+                  placeholder="写点什么… Cmd+Enter 保存 | 可粘贴图片 Ctrl+V | 点🎤语音输入"
+                  style="width:100%;resize:vertical;font-family:inherit;min-height:160px;"
                   onkeydown="if(event.metaKey && event.key==='Enter')addQuickNote()"
                   onpaste="handleQuicknotePaste(event)"></textarea>
         <div id="quicknote-preview" style="margin-top:6px;"></div>
