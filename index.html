@@ -326,7 +326,7 @@
   <!-- ==================== 左侧导航 ==================== -->
   <nav class="sidebar" id="sidebar">
     <div class="sidebar-logo">
-      <h2>📋 工作助手 <span style="font-size:10px;color:#666;">v23</span></h2>
+      <h2>📋 工作助手 <span style="font-size:10px;color:#666;">v24</span></h2>
       <span>珠海科技学院</span>
     </div>
 
@@ -686,6 +686,8 @@
                   onkeydown="if(event.metaKey && event.key==='Enter')addQuickNote()"
                   onpaste="handleQuicknotePaste(event)"></textarea>
         <div id="quicknote-preview" style="margin-top:6px;"></div>
+        <button class="btn" style="margin-top:8px;" id="quicknote-mic-btn" onclick="toggleVoiceInput()" title="语音输入">🎤</button>
+        <span id="mic-status" style="font-size:11px;color:var(--red);display:none;">🔴 正在聆听...</span>
         <button class="btn primary" style="margin-top:8px;" id="quicknote-save-btn" onclick="addQuickNote()">💾 保存</button>
         <button class="btn" style="margin-top:8px;display:none;" id="quicknote-cancel-btn" onclick="cancelQuickNoteEdit()">取消</button>
       </div>
@@ -1936,6 +1938,68 @@
     function toggleLifeTodo(i) { const t = getLifeTodos(); if (t[i]) { t[i].done = !t[i].done; saveLifeTodos(t); renderLifeTodos(); } }
     function deleteLifeTodo(i) { const t = getLifeTodos(); t.splice(i, 1); saveLifeTodos(t); renderLifeTodos(); }
     function saveLifeTodoEdit(i, newText) { const t = getLifeTodos(); if (t[i]) { t[i].text = newText; saveLifeTodos(t); renderLifeTodos(); } }
+
+    // ========== 🎤 语音识别 ==========
+    let recognition = null;
+    let isListening = false;
+
+    function initSpeechRecognition() {
+      const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+      if (!SpeechRecognition) return null;
+      const rec = new SpeechRecognition();
+      rec.lang = "zh-CN";          // 中文识别
+      rec.interimResults = false;  // 只返回最终结果
+      rec.continuous = false;      // 说完一句就停
+      return rec;
+    }
+
+    function toggleVoiceInput() {
+      if (!recognition) recognition = initSpeechRecognition();
+      if (!recognition) {
+        alert("你的浏览器不支持语音识别。请用 Chrome 或 Edge 浏览器。");
+        return;
+      }
+      if (isListening) {
+        recognition.stop();
+        return;
+      }
+      isListening = true;
+      document.getElementById("quicknote-mic-btn").textContent = "⏹";
+      document.getElementById("quicknote-mic-btn").style.background = "#fef2f2";
+      document.getElementById("mic-status").style.display = "inline";
+
+      recognition.onresult = function(event) {
+        const text = event.results[0][0].transcript;
+        const input = document.getElementById("quicknote-input");
+        // 追加到现有内容末尾
+        const existing = input.value.trim();
+        input.value = existing ? existing + "\n" + text : text;
+        // 自动生成标题（如果标题为空）
+        const titleEl = document.getElementById("quicknote-title");
+        if (!titleEl.value.trim()) {
+          titleEl.value = text.replace(/\s+/g, ' ').slice(0, 20) + (text.length > 20 ? '…' : '');
+        }
+        stopListening();
+      };
+
+      recognition.onerror = function(event) {
+        console.warn("语音识别错误:", event.error);
+        stopListening();
+      };
+
+      recognition.onend = function() {
+        stopListening();
+      };
+
+      recognition.start();
+    }
+
+    function stopListening() {
+      isListening = false;
+      document.getElementById("quicknote-mic-btn").textContent = "🎤";
+      document.getElementById("quicknote-mic-btn").style.background = "";
+      document.getElementById("mic-status").style.display = "none";
+    }
 
     // ========== 📝 随手记 ==========
     let pendingImages = [];
