@@ -326,7 +326,7 @@
   <!-- ==================== 左侧导航 ==================== -->
   <nav class="sidebar" id="sidebar">
     <div class="sidebar-logo">
-      <h2>📋 工作助手 <span style="font-size:10px;color:#666;">v18</span></h2>
+      <h2>📋 工作助手 <span style="font-size:10px;color:#666;">v19</span></h2>
       <span>珠海科技学院</span>
     </div>
 
@@ -602,24 +602,49 @@
     <!-- ===== 学习备考 ===== -->
     <section class="page" id="page-study">
       <h1 class="page-title">📖 学习备考</h1>
-      <p class="page-subtitle">事业编 / 公务员</p>
-      <div class="countdown-grid" id="countdown-grid"></div>
-      <div class="card"><h3>📚 科目进度</h3><div id="subject-list"></div></div>
-      <div class="card">
-        <h3>📝 今日学习任务</h3>
-        <ul class="todo-list" id="study-todo-list"></ul>
-        <div class="todo-add">
-          <input class="input" type="text" id="study-todo-input" placeholder="添加学习任务…" onkeydown="if(event.key==='Enter')addStudyTodo()">
-          <button class="btn primary" onclick="addStudyTodo()">＋ 添加</button>
+      <p class="page-subtitle">事业编 / 公务员 · 点击考试进入科目详情</p>
+
+      <!-- 视图1：考试列表 -->
+      <div id="study-list-view">
+        <div class="countdown-grid" id="countdown-grid"></div>
+        <div class="card">
+          <h3>➕ 添加考试</h3>
+          <div class="todo-add" style="flex-wrap:wrap;">
+            <input class="input" type="text" id="new-exam-name" placeholder="考试名称" style="max-width:200px;">
+            <input class="input" type="date" id="new-exam-date" style="max-width:140px;">
+            <button class="btn primary" onclick="addExam()">＋ 添加考试</button>
+          </div>
+        </div>
+        <div class="card">
+          <h3>📝 今日学习任务</h3>
+          <ul class="todo-list" id="study-todo-list"></ul>
+          <div class="todo-add">
+            <input class="input" type="text" id="study-todo-input" placeholder="添加学习任务…" onkeydown="if(event.key==='Enter')addStudyTodo()">
+            <button class="btn primary" onclick="addStudyTodo()">＋ 添加</button>
+          </div>
+        </div>
+        <div class="card">
+          <h3>🔗 学习资源</h3>
+          <div class="note-grid" id="study-resources"></div>
+          <div class="todo-add">
+            <input class="input" type="text" id="resource-title" placeholder="资源名称">
+            <input class="input" type="text" id="resource-link" placeholder="链接或说明" onkeydown="if(event.key==='Enter')addResource()">
+            <button class="btn primary" onclick="addResource()">添加</button>
+          </div>
         </div>
       </div>
-      <div class="card">
-        <h3>🔗 学习资源</h3>
-        <div class="note-grid" id="study-resources"></div>
-        <div class="todo-add">
-          <input class="input" type="text" id="resource-title" placeholder="资源名称">
-          <input class="input" type="text" id="resource-link" placeholder="链接或说明" onkeydown="if(event.key==='Enter')addResource()">
-          <button class="btn primary" onclick="addResource()">添加</button>
+
+      <!-- 视图2：某门考试的科目详情 -->
+      <div id="study-detail-view" style="display:none;">
+        <button class="btn" onclick="backToExamList()" style="margin-bottom:16px;">← 返回考试列表</button>
+        <div id="exam-detail-header"></div>
+        <div class="card">
+          <h3>📚 科目进度</h3>
+          <div id="exam-subject-list"></div>
+          <div class="todo-add" style="margin-top:12px;">
+            <input class="input" type="text" id="new-subject-name" placeholder="新科目名称" style="max-width:180px;">
+            <button class="btn primary" onclick="addSubjectToExam()">＋ 添加科目</button>
+          </div>
         </div>
       </div>
     </section>
@@ -746,17 +771,35 @@
       { cat: "出行", task: "校车时刻表", app: "企业微信-班车服务", note: "查看实时位置" },
     ];
 
-    const examData = [
-      { name: "广东省事业编统考", date: "2026-10-25", icon: "📝" },
-      { name: "国家公务员考试", date: "2026-11-29", icon: "🏛️" },
-    ];
+    // 每门考试自带科目列表，可以增删改
+    let currentExamId = null; // 当前查看的考试ID
 
-    const defaultSubjects = [
-      { name: "行政职业能力测验", icon: "🧮", progress: 0 },
-      { name: "申论", icon: "✍️", progress: 0 },
-      { name: "公共基础知识", icon: "📚", progress: 0 },
-      { name: "时事政治", icon: "📰", progress: 0 },
-    ];
+    function getDefaultExams() {
+      return [
+        {
+          id: "exam_1", name: "广东省事业编统考", date: "2026-10-25", icon: "📝",
+          subjects: [
+            { name: "行政职业能力测验", icon: "🧮", progress: 0 },
+            { name: "申论", icon: "✍️", progress: 0 },
+            { name: "公共基础知识", icon: "📚", progress: 0 },
+          ]
+        },
+        {
+          id: "exam_2", name: "国家公务员考试", date: "2026-11-29", icon: "🏛️",
+          subjects: [
+            { name: "行政职业能力测验", icon: "🧮", progress: 0 },
+            { name: "申论", icon: "✍️", progress: 0 },
+            { name: "时事政治", icon: "📰", progress: 0 },
+          ]
+        },
+      ];
+    }
+
+    function getExams() {
+      const raw = localStorage.getItem("work-assistant-exams");
+      return raw ? JSON.parse(raw) : getDefaultExams();
+    }
+    function saveExams(exams) { persist("work-assistant-exams", exams); }
 
     /* ============================================
        云同步 (Firebase Realtime Database)
@@ -861,7 +904,6 @@
       renderFAQ();
       renderAppTable();
       renderCountdowns();
-      renderSubjects();
       renderStudyTodos();
       renderResources();
       renderLifeTodos();
@@ -1637,42 +1679,168 @@
           <td style="color:var(--text-light);">${a.note}</td></tr>`).join("");
     }
 
-    // ========== 学习备考 ==========
-    function getSubjects() {
-      const raw = localStorage.getItem("work-assistant-subjects");
-      return raw ? JSON.parse(raw) : defaultSubjects.map(s => ({...s}));
-    }
-    function saveSubjects(s) { persist("work-assistant-subjects", s); }
+    // ========== 📖 学习备考 ==========
 
+    // 考试列表视图
     function renderCountdowns() {
       const now = new Date(); now.setHours(0,0,0,0);
-      document.getElementById("countdown-grid").innerHTML = examData.map(e => {
+      const exams = getExams();
+      document.getElementById("countdown-grid").innerHTML = exams.map((e, i) => {
         const diff = Math.ceil((new Date(e.date + "T00:00:00") - now) / 86400000);
-        return `<div class="countdown-card">
+        const totalProgress = e.subjects && e.subjects.length > 0
+          ? Math.round(e.subjects.reduce((sum, s) => sum + (s.progress || 0), 0) / e.subjects.length)
+          : 0;
+        return `<div class="countdown-card" onclick="openExamDetail('${e.id}')" style="cursor:pointer;position:relative;">
+          <button class="btn danger small" style="position:absolute;top:6px;right:6px;font-size:10px;"
+                  onclick="event.stopPropagation();deleteExam('${e.id}')" title="删除考试">✕</button>
           <div style="font-size:28px;">${e.icon}</div>
           <div class="countdown-num">${diff > 0 ? diff : 0}</div>
           <div class="countdown-label">天</div>
-          <div style="font-size:13px;font-weight:500;margin-top:4px;">${e.name}</div>
-          <div style="font-size:11px;color:var(--text-light);">${e.date}</div></div>`;
+          <div style="font-size:13px;font-weight:500;margin-top:4px;" onclick="event.stopPropagation();editExamName('${e.id}')" title="点击编辑名称">${escapeHtml(e.name)}</div>
+          <div style="font-size:11px;color:var(--text-light);" onclick="event.stopPropagation();editExamDate('${e.id}')" title="点击编辑日期">${e.date}</div>
+          <div class="progress-bar" style="margin-top:8px;"><div class="progress-fill" style="width:${totalProgress}%;"></div></div>
+          <div style="font-size:10px;color:var(--text-light);margin-top:2px;">总进度 ${totalProgress}%</div>
+        </div>`;
       }).join("");
     }
 
-    function renderSubjects() {
-      document.getElementById("subject-list").innerHTML = getSubjects().map((s, i) => `
-        <div style="margin-bottom:14px;">
-          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px;">
-            <span style="font-size:14px;">${s.icon} ${s.name}</span>
-            <span style="font-size:12px;color:var(--text-light);">${s.progress}%</span></div>
-          <div class="progress-bar"><div class="progress-fill" style="width:${s.progress}%;"></div></div>
-          <div style="margin-top:4px;display:flex;gap:4px;">
-            ${[0,25,50,75,100].map(p => `<button class="btn tiny" onclick="setSubjectProgress(${i},${p})">${p}%</button>`).join("")}
-          </div></div>`).join("");
+    function editExamName(id) {
+      const exams = getExams();
+      const exam = exams.find(e => e.id === id);
+      if (!exam) return;
+      const newName = prompt("修改考试名称：", exam.name);
+      if (newName && newName.trim()) { exam.name = newName.trim(); saveExams(exams); renderCountdowns(); }
     }
 
-    function setSubjectProgress(i, pct) {
-      const s = getSubjects(); if (s[i]) { s[i].progress = pct; saveSubjects(s); renderSubjects(); }
+    function editExamDate(id) {
+      const exams = getExams();
+      const exam = exams.find(e => e.id === id);
+      if (!exam) return;
+      const newDate = prompt("修改考试日期 (YYYY-MM-DD)：", exam.date);
+      if (newDate && /^\d{4}-\d{2}-\d{2}$/.test(newDate.trim())) {
+        exam.date = newDate.trim(); saveExams(exams); renderCountdowns();
+      }
     }
 
+    function addExam() {
+      const nameEl = document.getElementById("new-exam-name");
+      const dateEl = document.getElementById("new-exam-date");
+      const name = nameEl.value.trim();
+      const date = dateEl.value;
+      if (!name || !date) return;
+      const exams = getExams();
+      exams.push({
+        id: "exam_" + Date.now(),
+        name, date,
+        icon: ["📝","🏛️","📋","🎯","💼"][Math.floor(Math.random()*5)],
+        subjects: []
+      });
+      saveExams(exams);
+      nameEl.value = ""; dateEl.value = "";
+      renderCountdowns();
+    }
+
+    function deleteExam(id) {
+      const exams = getExams();
+      const exam = exams.find(e => e.id === id);
+      if (!exam || !confirm(`确定删除「${exam.name}」吗？`)) return;
+      saveExams(exams.filter(e => e.id !== id));
+      if (currentExamId === id) backToExamList();
+      renderCountdowns();
+    }
+
+    // 进入考试详情
+    function openExamDetail(id) {
+      currentExamId = id;
+      document.getElementById("study-list-view").style.display = "none";
+      document.getElementById("study-detail-view").style.display = "block";
+      const exam = getExams().find(e => e.id === id);
+      if (!exam) return;
+      // 渲染头部
+      const now = new Date(); now.setHours(0,0,0,0);
+      const diff = Math.ceil((new Date(exam.date + "T00:00:00") - now) / 86400000);
+      document.getElementById("exam-detail-header").innerHTML = `
+        <h2 style="font-size:18px;">${exam.icon} ${escapeHtml(exam.name)}</h2>
+        <p style="color:var(--text-light);font-size:13px;">📅 ${exam.date} · 倒计时 <strong style="color:var(--accent);">${diff > 0 ? diff : 0}</strong> 天</p>`;
+      renderExamSubjects();
+    }
+
+    function backToExamList() {
+      currentExamId = null;
+      document.getElementById("study-list-view").style.display = "block";
+      document.getElementById("study-detail-view").style.display = "none";
+      renderCountdowns();
+    }
+
+    // 渲染某门考试的科目
+    function renderExamSubjects() {
+      const exams = getExams();
+      const exam = exams.find(e => e.id === currentExamId);
+      if (!exam) return;
+      if (!exam.subjects) exam.subjects = [];
+      document.getElementById("exam-subject-list").innerHTML = exam.subjects.length === 0
+        ? `<p style="color:var(--text-light);font-size:13px;">还没有科目，在下方添加 👇</p>`
+        : exam.subjects.map((s, i) => `
+          <div style="margin-bottom:14px;">
+            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px;">
+              <span style="font-size:14px;">
+                <span onclick="editSubjectName(${i})" style="cursor:pointer;" title="点我改名">${s.icon || '📖'} ${escapeHtml(s.name)}</span>
+              </span>
+              <span style="font-size:12px;color:var(--text-light);">${s.progress || 0}%</span>
+              <button class="btn danger small" style="margin-left:8px;" onclick="deleteSubjectFromExam(${i})" title="删除科目">✕</button>
+            </div>
+            <div class="progress-bar"><div class="progress-fill" style="width:${s.progress || 0}%;"></div></div>
+            <div style="margin-top:4px;display:flex;gap:4px;">
+              ${[0,25,50,75,100].map(p => `<button class="btn tiny" onclick="setExamSubjectProgress(${i},${p})">${p}%</button>`).join("")}
+            </div>
+          </div>`).join("");
+    }
+
+    function setExamSubjectProgress(i, pct) {
+      const exams = getExams();
+      const exam = exams.find(e => e.id === currentExamId);
+      if (!exam || !exam.subjects[i]) return;
+      exam.subjects[i].progress = pct;
+      saveExams(exams);
+      renderExamSubjects();
+      renderCountdowns(); // 更新列表里的总进度条
+    }
+
+    function editSubjectName(i) {
+      const exams = getExams();
+      const exam = exams.find(e => e.id === currentExamId);
+      if (!exam || !exam.subjects[i]) return;
+      const newName = prompt("修改科目名称：", exam.subjects[i].name);
+      if (newName && newName.trim()) { exam.subjects[i].name = newName.trim(); saveExams(exams); renderExamSubjects(); }
+    }
+
+    function addSubjectToExam() {
+      const input = document.getElementById("new-subject-name");
+      const name = input.value.trim();
+      if (!name) return;
+      const exams = getExams();
+      const exam = exams.find(e => e.id === currentExamId);
+      if (!exam) return;
+      if (!exam.subjects) exam.subjects = [];
+      exam.subjects.push({ name, icon: "📖", progress: 0 });
+      saveExams(exams);
+      input.value = "";
+      renderExamSubjects();
+      renderCountdowns();
+    }
+
+    function deleteSubjectFromExam(i) {
+      const exams = getExams();
+      const exam = exams.find(e => e.id === currentExamId);
+      if (!exam || !exam.subjects[i]) return;
+      if (!confirm(`确定删除科目「${exam.subjects[i].name}」吗？`)) return;
+      exam.subjects.splice(i, 1);
+      saveExams(exams);
+      renderExamSubjects();
+      renderCountdowns();
+    }
+
+    // 学习待办
     function getStudyTodos() {
       const raw = localStorage.getItem("work-assistant-study-todos");
       return raw ? JSON.parse(raw) : [];
@@ -1697,6 +1865,7 @@
     function deleteStudyTodo(i) { const t = getStudyTodos(); t.splice(i, 1); saveStudyTodos(t); renderStudyTodos(); }
     function saveStudyTodoEdit(i, newText) { const t = getStudyTodos(); if (t[i]) { t[i].text = newText; saveStudyTodos(t); renderStudyTodos(); } }
 
+    // 学习资源
     function getResources() {
       const raw = localStorage.getItem("work-assistant-resources");
       return raw ? JSON.parse(raw) : [
