@@ -326,7 +326,7 @@
   <!-- ==================== 左侧导航 ==================== -->
   <nav class="sidebar" id="sidebar">
     <div class="sidebar-logo">
-      <h2>📋 工作助手 <span style="font-size:10px;color:#666;">v19</span></h2>
+      <h2>📋 工作助手 <span style="font-size:10px;color:#666;">v20</span></h2>
       <span>珠海科技学院</span>
     </div>
 
@@ -671,9 +671,11 @@
 
       <div class="card">
         <textarea class="input" id="quicknote-input" rows="3"
-                  placeholder="随便写点什么… 按 Cmd+Enter 保存"
+                  placeholder="写点什么… Cmd+Enter 保存 | 可粘贴图片 Ctrl+V"
                   style="width:100%;resize:vertical;font-family:inherit;"
-                  onkeydown="if(event.metaKey && event.key==='Enter')addQuickNote()"></textarea>
+                  onkeydown="if(event.metaKey && event.key==='Enter')addQuickNote()"
+                  onpaste="handleQuicknotePaste(event)"></textarea>
+        <div id="quicknote-preview" style="margin-top:6px;"></div>
         <button class="btn primary" style="margin-top:8px;" onclick="addQuickNote()">💾 保存</button>
       </div>
 
@@ -1924,11 +1926,32 @@
     function saveLifeTodoEdit(i, newText) { const t = getLifeTodos(); if (t[i]) { t[i].text = newText; saveLifeTodos(t); renderLifeTodos(); } }
 
     // ========== 📝 随手记 ==========
+    let pendingImages = []; // 粘贴图片暂存
+
     function getQuickNotes() {
       const raw = localStorage.getItem("work-assistant-quicknotes");
       return raw ? JSON.parse(raw) : [];
     }
     function saveQuickNotes(d) { persist("work-assistant-quicknotes", d); }
+
+    // 处理图片粘贴
+    function handleQuicknotePaste(e) {
+      const items = e.clipboardData?.items;
+      if (!items) return;
+      for (const item of items) {
+        if (item.type.startsWith("image/")) {
+          e.preventDefault();
+          const blob = item.getAsFile();
+          const reader = new FileReader();
+          reader.onload = function(ev) {
+            pendingImages.push(ev.target.result);
+            const preview = document.getElementById("quicknote-preview");
+            preview.innerHTML += `<img src="${ev.target.result}" style="max-width:200px;max-height:150px;margin:4px;border-radius:6px;border:1px solid var(--border);" title="已粘贴图片">`;
+          };
+          reader.readAsDataURL(blob);
+        }
+      }
+    }
 
     function renderQuickNotes() {
       const notes = getQuickNotes();
@@ -1937,7 +1960,8 @@
         : notes.map((n, i) => `
           <div class="card" style="position:relative;">
             <div style="font-size:11px;color:var(--text-light);margin-bottom:6px;">${n.date}</div>
-            <div style="font-size:14px;white-space:pre-wrap;line-height:1.6;">${escapeHtml(n.text)}</div>
+            <div style="font-size:14px;white-space:pre-wrap;line-height:1.6;">${escapeHtml(n.text || '')}</div>
+            ${(n.images || []).map(img => `<img src="${img}" style="max-width:100%;max-height:300px;margin-top:8px;border-radius:6px;border:1px solid var(--border);">`).join("")}
             <button class="btn danger small" style="position:absolute;top:12px;right:12px;"
                     onclick="deleteQuickNote(${i})">✕</button>
           </div>`).join("");
@@ -1946,14 +1970,18 @@
     function addQuickNote() {
       const input = document.getElementById("quicknote-input");
       const text = input.value.trim();
-      if (!text) return;
+      const hasImages = pendingImages.length > 0;
+      if (!text && !hasImages) return;
       const notes = getQuickNotes();
       notes.unshift({
         text,
+        images: [...pendingImages], // 附带的图片
         date: new Date().toLocaleString("zh-CN", { month:"numeric", day:"numeric", hour:"2-digit", minute:"2-digit" })
       });
       saveQuickNotes(notes);
       input.value = "";
+      pendingImages = [];
+      document.getElementById("quicknote-preview").innerHTML = "";
       renderQuickNotes();
     }
 
