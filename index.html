@@ -326,7 +326,7 @@
   <!-- ==================== 左侧导航 ==================== -->
   <nav class="sidebar" id="sidebar">
     <div class="sidebar-logo">
-      <h2>📋 工作助手 <span style="font-size:10px;color:#666;">v28</span></h2>
+      <h2>📋 工作助手 <span style="font-size:10px;color:#666;">v29</span></h2>
       <span>珠海科技学院</span>
     </div>
 
@@ -1893,37 +1893,74 @@
 
     function deleteResource(i) { const r = getResources(); r.splice(i, 1); saveResources(r); renderResources(); }
 
-    // ========== 🎤 录音机（可暂停/继续/停止）==========
+    // ========== 🎤 录音机（边说边转文字）==========
     let mediaRecorder = null;
     let audioChunks = [];
+    let speechRecognition = null;
     let recorderState = "idle"; // idle | recording | paused
+    let recordingStartTime = 0;
+    let recordingTimer = null;
+
+    function getSpeechRec() {
+      if (!speechRecognition) {
+        const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+        if (SR) {
+          speechRecognition = new SR();
+          speechRecognition.lang = "zh-CN";
+          speechRecognition.interimResults = true;
+          speechRecognition.continuous = true;
+        }
+      }
+      return speechRecognition;
+    }
 
     async function toggleRecorder() {
-      if (recorderState === "idle") {
-        await startRecording();
-      } else if (recorderState === "recording") {
-        pauseRecording();
-      } else if (recorderState === "paused") {
-        resumeRecording();
-      }
+      if (recorderState === "recording") { pauseRecording(); }
+      else if (recorderState === "paused") { resumeRecording(); }
+      else { await startRecording(); }
     }
 
     async function startRecording() {
+      const rec = getSpeechRec();
+      if (!rec) { alert("浏览器不支持语音识别，请用 Chrome。"); return; }
       try {
         const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
         mediaRecorder = new MediaRecorder(stream, { mimeType: "audio/webm" });
         audioChunks = [];
+        recordingStartTime = Date.now();
 
         mediaRecorder.ondataavailable = e => { if (e.data.size > 0) audioChunks.push(e.data); };
-
         mediaRecorder.onstop = () => {
           stream.getTracks().forEach(t => t.stop());
-          showRecordingResult();
+          clearInterval(recordingTimer);
+          saveRecordingAudio();
         };
 
+        // 同时语音识别
+        let finalText = "";
+        rec.onresult = (e) => {
+          let interim = "";
+          for (let i = e.resultIndex; i < e.results.length; i++) {
+            if (e.results[i].isFinal) finalText += e.results[i][0].transcript;
+            else interim += e.results[i][0].transcript;
+          }
+          const input = document.getElementById("quicknote-input");
+          const base = input.dataset.recBase || input.value;
+          if (!input.dataset.recBase) input.dataset.recBase = base;
+          input.value = base + (base ? "\n" : "") + finalText + (interim ? " ·" + interim + "·" : "");
+          const titleEl = document.getElementById("quicknote-title");
+          if (!titleEl.value.trim() && finalText) {
+            titleEl.value = finalText.replace(/\s+/g, " ").slice(0, 20);
+          }
+        };
+        rec.onerror = (e) => { if (e.error !== "no-speech") console.warn(e.error); };
+        rec.onend = () => { if (recorderState === "recording") { try { rec.start(); } catch(e) {} } };
+
         mediaRecorder.start();
+        rec.start();
         recorderState = "recording";
         updateRecorderUI();
+        recordingTimer = setInterval(updateRecorderUI, 1000);
       } catch (e) {
         alert("无法访问麦克风：" + e.message);
       }
@@ -1932,7 +1969,9 @@
     function pauseRecording() {
       if (mediaRecorder && recorderState === "recording") {
         mediaRecorder.pause();
+        try { getSpeechRec().stop(); } catch(e) {}
         recorderState = "paused";
+        clearInterval(recordingTimer);
         updateRecorderUI();
       }
     }
@@ -1940,16 +1979,23 @@
     function resumeRecording() {
       if (mediaRecorder && recorderState === "paused") {
         mediaRecorder.resume();
+        recordingStartTime = Date.now();
+        try { getSpeechRec().start(); } catch(e) {}
         recorderState = "recording";
+        recordingTimer = setInterval(updateRecorderUI, 1000);
         updateRecorderUI();
       }
     }
 
     function stopRecording() {
       if (mediaRecorder && recorderState !== "idle") {
+        try { getSpeechRec().stop(); } catch(e) {}
         mediaRecorder.stop();
         recorderState = "idle";
+        clearInterval(recordingTimer);
         updateRecorderUI();
+        const input = document.getElementById("quicknote-input");
+        delete input.dataset.recBase;
       }
     }
 
@@ -1960,112 +2006,56 @@
       const pauseBtn = document.getElementById("quicknote-pause-btn");
 
       if (recorderState === "idle") {
-        micBtn.textContent = "🎤"; micBtn.style.background = "";
+        micBtn.style.display = "inline-flex"; micBtn.style.background = "";
         status.style.display = "none";
         if (stopBtn) stopBtn.style.display = "none";
         if (pauseBtn) pauseBtn.style.display = "none";
       } else if (recorderState === "recording") {
         micBtn.style.display = "none";
-        status.textContent = "🔴 录音中..."; status.style.display = "inline";
+        const elapsed = Math.floor((Date.now() - recordingStartTime) / 1000);
+        status.textContent = "\u{1F534} 录音中 " + Math.floor(elapsed/60) + ":" + String(elapsed%60).padStart(2,"0");
+        status.style.display = "inline";
         if (stopBtn) stopBtn.style.display = "inline-flex";
-        if (pauseBtn) { pauseBtn.textContent = "⏸ 暂停"; pauseBtn.style.display = "inline-flex"; }
+        if (pauseBtn) { pauseBtn.textContent = "\u23F8 暂停"; pauseBtn.style.display = "inline-flex"; }
       } else if (recorderState === "paused") {
-        status.textContent = "⏸ 已暂停"; status.style.display = "inline";
-        if (pauseBtn) { pauseBtn.textContent = "▶ 继续"; pauseBtn.style.display = "inline-flex"; }
+        status.textContent = "\u23F8 已暂停"; status.style.display = "inline";
+        if (pauseBtn) { pauseBtn.textContent = "\u25B6 继续"; pauseBtn.style.display = "inline-flex"; }
       }
     }
 
-    function showRecordingResult() {
+    function saveRecordingAudio() {
       const preview = document.getElementById("quicknote-preview");
       const blob = new Blob(audioChunks, { type: "audio/webm" });
       const audioURL = URL.createObjectURL(blob);
-
-      preview.innerHTML = `
-        <div style="background:#f0f4ff;border-radius:8px;padding:10px;margin-top:4px;">
-          <audio controls src="${audioURL}" style="width:100%;max-width:400px;"></audio>
-          <div style="margin-top:8px;display:flex;gap:6px;flex-wrap:wrap;">
-            <button class="btn primary small" onclick="transcribeRecording('${audioURL}')">📝 转为文字</button>
-            <button class="btn small" onclick="promptSummary()">🤖 总结内容</button>
-            <button class="btn small" onclick="discardRecording()">🗑️ 丢弃录音</button>
-          </div>
-          <div id="transcription-result" style="margin-top:8px;"></div>
-        </div>`;
-
-      // 记录音频URL供后续使用
-      document.getElementById("quicknote-preview").dataset.audioUrl = audioURL;
-    }
-
-    let lastTranscript = ""; // 暂存最近的识别/总结结果
-
-    function transcribeRecording(audioURL) {
-      const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-      if (!SpeechRecognition) { alert("浏览器不支持语音识别"); return; }
-
-      const resultDiv = document.getElementById("transcription-result");
-      resultDiv.innerHTML = "<p style='color:var(--accent);'>🔄 正在识别中，请保持安静...</p>";
-
-      const audio = new Audio(audioURL);
-      const rec = new SpeechRecognition();
-      rec.lang = "zh-CN";
-      rec.interimResults = false;
-
-      rec.onresult = e => { lastTranscript = e.results[0][0].transcript; };
-      rec.onerror = e => { resultDiv.innerHTML = "<p style='color:var(--red);'>识别失败：" + e.error + "。请重试或手动输入。</p>"; };
-      rec.onend = () => {
-        if (lastTranscript) {
-          resultDiv.innerHTML = "<div style='background:#fff;border:1px solid var(--border);border-radius:6px;padding:8px;'>" +
-            "<p style='font-size:12px;color:var(--text-light);margin-bottom:4px;'>📝 识别结果：</p>" +
-            "<p style='font-size:14px;white-space:pre-wrap;'>" + escapeHtml(lastTranscript) + "</p>" +
-            "<button class='btn small primary' style='margin-top:6px;' onclick='useLastTranscript()'>✅ 使用此文字</button></div>";
-        } else {
-          resultDiv.innerHTML = "<p style='color:var(--text-light);'>未识别到语音内容，请重试。</p>";
-        }
-      };
-
-      rec.start();
-      audio.play();
-      audio.onended = () => { try { rec.stop(); } catch(e) {} };
-    }
-
-    function useLastTranscript() {
-      const input = document.getElementById("quicknote-input");
-      input.value = input.value ? input.value + "\n" + lastTranscript : lastTranscript;
-      document.getElementById("transcription-result").innerHTML = "<span style='color:var(--green);font-size:12px;'>✅ 文字已填写到内容框</span>";
+      pendingImages.push(audioURL);
+      const dur = Math.max(1, Math.round(audioChunks.reduce((s,c) => s + c.size, 0) / 16000));
+      preview.innerHTML += '<div style="background:#f0f4ff;border-radius:8px;padding:8px;margin-top:4px;display:flex;align-items:center;gap:8px;">' +
+        '<span style="font-size:12px;">\u{1F3B5} 录音 ~' + dur + '秒</span>' +
+        '<audio controls src="' + audioURL + '" style="flex:1;max-width:300px;height:28px;"></audio>' +
+        '<button class="btn danger small" onclick="this.parentElement.remove()">\u2715</button></div>';
     }
 
     function promptSummary() {
       const input = document.getElementById("quicknote-input");
       const text = input.value.trim();
-      if (!text) { alert("请先转录为文字，或手动输入内容后再总结。"); return; }
-
-      const lang = prompt("总结要求（可选）：\n例如：用三句话总结 / 列出要点", "列出要点");
-      if (!lang) return;
-
+      if (!text) { alert("请先录音转文字，或手动输入内容后再总结。"); return; }
+      const way = prompt("总结方式：\n1=列出要点  2=三句话总结  3=提炼关键词", "1");
+      if (!way) return;
       const sentences = text.split(/[。！？\n]+/).filter(s => s.trim());
-      lastTranscript = sentences.length <= 3
-        ? text
-        : "📌 " + sentences.map((s, i) => (i+1) + ". " + s.trim()).join("\n");
-
-      const resultDiv = document.getElementById("transcription-result");
-      resultDiv.innerHTML = "<div style='background:#fff;border:1px solid var(--border);border-radius:6px;padding:8px;'>" +
-        "<p style='font-size:12px;color:var(--text-light);margin-bottom:4px;'>🤖 按「" + escapeHtml(lang) + "」整理：</p>" +
-        "<p style='font-size:14px;white-space:pre-wrap;'>" + escapeHtml(lastTranscript) + "</p>" +
-        "<button class='btn small primary' style='margin-top:6px;' onclick='useLastTranscript()'>✅ 使用此总结</button></div>";
+      let result;
+      if (way === "2" && sentences.length > 3) {
+        result = sentences.slice(0, 3).map((s,i) => (i+1) + ". " + s.trim()).join("\n");
+      } else if (way === "3") {
+        const words = text.replace(/[，。！？\n\s]/g, " ").split(" ").filter(w => w.length >= 2).slice(0, 10);
+        result = "\u{1F4CC} " + words.join("、");
+      } else {
+        result = "\u{1F4CC} " + sentences.map((s,i) => (i+1) + ". " + s.trim()).join("\n");
+      }
+      const input2 = document.getElementById("quicknote-input");
+      input2.value = input2.value + "\n\n---\n\u{1F4DD} 总结：\n" + result;
     }
 
-    function discardRecording() {
-      document.getElementById("quicknote-preview").innerHTML = "";
-      delete document.getElementById("quicknote-preview").dataset.audioUrl;
-    }
 
-    // ========== 📝 随手记 ==========
-    let pendingImages = [];
-    let editingQuickNoteIdx = -1; // -1 = 新增模式，>=0 = 编辑第几条
-
-    function getQuickNotes() {
-      const raw = localStorage.getItem("work-assistant-quicknotes");
-      return raw ? JSON.parse(raw) : [];
-    }
     function saveQuickNotes(d) { persist("work-assistant-quicknotes", d); }
 
     // 处理图片粘贴
