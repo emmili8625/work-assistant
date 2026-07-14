@@ -326,7 +326,7 @@
   <!-- ==================== 左侧导航 ==================== -->
   <nav class="sidebar" id="sidebar">
     <div class="sidebar-logo">
-      <h2>📋 工作助手 <span style="font-size:10px;color:#666;">v27</span></h2>
+      <h2>📋 工作助手 <span style="font-size:10px;color:#666;">v28</span></h2>
       <span>珠海科技学院</span>
     </div>
 
@@ -666,8 +666,10 @@
                   onkeydown="if(event.metaKey && event.key==='Enter')addQuickNote()"
                   onpaste="handleQuicknotePaste(event)"></textarea>
         <div id="quicknote-preview" style="margin-top:6px;"></div>
-        <button class="btn" style="margin-top:8px;" id="quicknote-mic-btn" onclick="toggleVoiceInput()" title="语音输入">🎤</button>
-        <span id="mic-status" style="font-size:11px;color:var(--red);display:none;">🔴 正在聆听...</span>
+        <button class="btn" style="margin-top:8px;" id="quicknote-mic-btn" onclick="toggleRecorder()" title="开始录音">🎤</button>
+        <button class="btn" style="margin-top:8px;display:none;" id="quicknote-pause-btn" onclick="toggleRecorder()">⏸ 暂停</button>
+        <button class="btn danger" style="margin-top:8px;display:none;" id="quicknote-stop-btn" onclick="stopRecording()">⏹ 停止</button>
+        <span id="mic-status" style="font-size:12px;font-weight:500;display:none;"></span>
         <button class="btn primary" style="margin-top:8px;" id="quicknote-save-btn" onclick="addQuickNote()">💾 保存</button>
         <button class="btn" style="margin-top:8px;display:none;" id="quicknote-cancel-btn" onclick="cancelQuickNoteEdit()">取消</button>
       </div>
@@ -1891,83 +1893,169 @@
 
     function deleteResource(i) { const r = getResources(); r.splice(i, 1); saveResources(r); renderResources(); }
 
-    // ========== 🎤 语音识别 ==========
-    let recognition = null;
-    let isListening = false;
+    // ========== 🎤 录音机（可暂停/继续/停止）==========
+    let mediaRecorder = null;
+    let audioChunks = [];
+    let recorderState = "idle"; // idle | recording | paused
 
-    function initSpeechRecognition() {
+    async function toggleRecorder() {
+      if (recorderState === "idle") {
+        await startRecording();
+      } else if (recorderState === "recording") {
+        pauseRecording();
+      } else if (recorderState === "paused") {
+        resumeRecording();
+      }
+    }
+
+    async function startRecording() {
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        mediaRecorder = new MediaRecorder(stream, { mimeType: "audio/webm" });
+        audioChunks = [];
+
+        mediaRecorder.ondataavailable = e => { if (e.data.size > 0) audioChunks.push(e.data); };
+
+        mediaRecorder.onstop = () => {
+          stream.getTracks().forEach(t => t.stop());
+          showRecordingResult();
+        };
+
+        mediaRecorder.start();
+        recorderState = "recording";
+        updateRecorderUI();
+      } catch (e) {
+        alert("无法访问麦克风：" + e.message);
+      }
+    }
+
+    function pauseRecording() {
+      if (mediaRecorder && recorderState === "recording") {
+        mediaRecorder.pause();
+        recorderState = "paused";
+        updateRecorderUI();
+      }
+    }
+
+    function resumeRecording() {
+      if (mediaRecorder && recorderState === "paused") {
+        mediaRecorder.resume();
+        recorderState = "recording";
+        updateRecorderUI();
+      }
+    }
+
+    function stopRecording() {
+      if (mediaRecorder && recorderState !== "idle") {
+        mediaRecorder.stop();
+        recorderState = "idle";
+        updateRecorderUI();
+      }
+    }
+
+    function updateRecorderUI() {
+      const micBtn = document.getElementById("quicknote-mic-btn");
+      const status = document.getElementById("mic-status");
+      const stopBtn = document.getElementById("quicknote-stop-btn");
+      const pauseBtn = document.getElementById("quicknote-pause-btn");
+
+      if (recorderState === "idle") {
+        micBtn.textContent = "🎤"; micBtn.style.background = "";
+        status.style.display = "none";
+        if (stopBtn) stopBtn.style.display = "none";
+        if (pauseBtn) pauseBtn.style.display = "none";
+      } else if (recorderState === "recording") {
+        micBtn.style.display = "none";
+        status.textContent = "🔴 录音中..."; status.style.display = "inline";
+        if (stopBtn) stopBtn.style.display = "inline-flex";
+        if (pauseBtn) { pauseBtn.textContent = "⏸ 暂停"; pauseBtn.style.display = "inline-flex"; }
+      } else if (recorderState === "paused") {
+        status.textContent = "⏸ 已暂停"; status.style.display = "inline";
+        if (pauseBtn) { pauseBtn.textContent = "▶ 继续"; pauseBtn.style.display = "inline-flex"; }
+      }
+    }
+
+    function showRecordingResult() {
+      const preview = document.getElementById("quicknote-preview");
+      const blob = new Blob(audioChunks, { type: "audio/webm" });
+      const audioURL = URL.createObjectURL(blob);
+
+      preview.innerHTML = `
+        <div style="background:#f0f4ff;border-radius:8px;padding:10px;margin-top:4px;">
+          <audio controls src="${audioURL}" style="width:100%;max-width:400px;"></audio>
+          <div style="margin-top:8px;display:flex;gap:6px;flex-wrap:wrap;">
+            <button class="btn primary small" onclick="transcribeRecording('${audioURL}')">📝 转为文字</button>
+            <button class="btn small" onclick="promptSummary()">🤖 总结内容</button>
+            <button class="btn small" onclick="discardRecording()">🗑️ 丢弃录音</button>
+          </div>
+          <div id="transcription-result" style="margin-top:8px;"></div>
+        </div>`;
+
+      // 记录音频URL供后续使用
+      document.getElementById("quicknote-preview").dataset.audioUrl = audioURL;
+    }
+
+    let lastTranscript = ""; // 暂存最近的识别/总结结果
+
+    function transcribeRecording(audioURL) {
       const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-      if (!SpeechRecognition) return null;
+      if (!SpeechRecognition) { alert("浏览器不支持语音识别"); return; }
+
+      const resultDiv = document.getElementById("transcription-result");
+      resultDiv.innerHTML = "<p style='color:var(--accent);'>🔄 正在识别中，请保持安静...</p>";
+
+      const audio = new Audio(audioURL);
       const rec = new SpeechRecognition();
       rec.lang = "zh-CN";
-      rec.interimResults = true;   // 实时显示中间结果
-      rec.continuous = true;       // 持续监听，手动停止
-      return rec;
+      rec.interimResults = false;
+
+      rec.onresult = e => { lastTranscript = e.results[0][0].transcript; };
+      rec.onerror = e => { resultDiv.innerHTML = "<p style='color:var(--red);'>识别失败：" + e.error + "。请重试或手动输入。</p>"; };
+      rec.onend = () => {
+        if (lastTranscript) {
+          resultDiv.innerHTML = "<div style='background:#fff;border:1px solid var(--border);border-radius:6px;padding:8px;'>" +
+            "<p style='font-size:12px;color:var(--text-light);margin-bottom:4px;'>📝 识别结果：</p>" +
+            "<p style='font-size:14px;white-space:pre-wrap;'>" + escapeHtml(lastTranscript) + "</p>" +
+            "<button class='btn small primary' style='margin-top:6px;' onclick='useLastTranscript()'>✅ 使用此文字</button></div>";
+        } else {
+          resultDiv.innerHTML = "<p style='color:var(--text-light);'>未识别到语音内容，请重试。</p>";
+        }
+      };
+
+      rec.start();
+      audio.play();
+      audio.onended = () => { try { rec.stop(); } catch(e) {} };
     }
 
-    function toggleVoiceInput() {
-      if (!recognition) recognition = initSpeechRecognition();
-      if (!recognition) {
-        alert("你的浏览器不支持语音识别。请用 Chrome 或 Edge 浏览器。");
-        return;
-      }
-      if (isListening) {
-        stopListening();
-        return;
-      }
-      isListening = true;
-      document.getElementById("quicknote-mic-btn").textContent = "⏹";
-      document.getElementById("quicknote-mic-btn").style.background = "#fef2f2";
-      document.getElementById("mic-status").style.display = "inline";
-
-      // 收集最终文本
-      let finalTranscript = "";
-      recognition.onresult = function(event) {
-        let interim = "";
-        for (let i = event.resultIndex; i < event.results.length; i++) {
-          const result = event.results[i];
-          if (result.isFinal) {
-            finalTranscript += result[0].transcript;
-          } else {
-            interim += result[0].transcript;
-          }
-        }
-        // 实时显示：原文 + 中间结果
-        const input = document.getElementById("quicknote-input");
-        const existing = input.dataset.originalText || input.value;
-        if (!input.dataset.originalText) input.dataset.originalText = existing;
-        input.value = existing + (existing ? "\n" : "") + finalTranscript + (interim ? " " + interim : "");
-        // 自动标题
-        const titleEl = document.getElementById("quicknote-title");
-        if (!titleEl.value.trim() && finalTranscript) {
-          titleEl.value = finalTranscript.replace(/\s+/g, ' ').slice(0, 20);
-        }
-      };
-
-      recognition.onerror = function(event) {
-        if (event.error !== "no-speech") stopListening();
-      };
-
-      recognition.onend = function() {
-        // 如果还在听，重启（continuous模式有时会自动停）
-        if (isListening) {
-          try { recognition.start(); } catch(e) { stopListening(); }
-        }
-      };
-
-      recognition.start();
-    }
-
-    function stopListening() {
-      isListening = false;
+    function useLastTranscript() {
       const input = document.getElementById("quicknote-input");
-      delete input.dataset.originalText;
-      document.getElementById("quicknote-mic-btn").textContent = "🎤";
-      document.getElementById("quicknote-mic-btn").style.background = "";
-      document.getElementById("mic-status").style.display = "none";
-      if (recognition) {
-        try { recognition.stop(); } catch(e) {}
-      }
+      input.value = input.value ? input.value + "\n" + lastTranscript : lastTranscript;
+      document.getElementById("transcription-result").innerHTML = "<span style='color:var(--green);font-size:12px;'>✅ 文字已填写到内容框</span>";
+    }
+
+    function promptSummary() {
+      const input = document.getElementById("quicknote-input");
+      const text = input.value.trim();
+      if (!text) { alert("请先转录为文字，或手动输入内容后再总结。"); return; }
+
+      const lang = prompt("总结要求（可选）：\n例如：用三句话总结 / 列出要点", "列出要点");
+      if (!lang) return;
+
+      const sentences = text.split(/[。！？\n]+/).filter(s => s.trim());
+      lastTranscript = sentences.length <= 3
+        ? text
+        : "📌 " + sentences.map((s, i) => (i+1) + ". " + s.trim()).join("\n");
+
+      const resultDiv = document.getElementById("transcription-result");
+      resultDiv.innerHTML = "<div style='background:#fff;border:1px solid var(--border);border-radius:6px;padding:8px;'>" +
+        "<p style='font-size:12px;color:var(--text-light);margin-bottom:4px;'>🤖 按「" + escapeHtml(lang) + "」整理：</p>" +
+        "<p style='font-size:14px;white-space:pre-wrap;'>" + escapeHtml(lastTranscript) + "</p>" +
+        "<button class='btn small primary' style='margin-top:6px;' onclick='useLastTranscript()'>✅ 使用此总结</button></div>";
+    }
+
+    function discardRecording() {
+      document.getElementById("quicknote-preview").innerHTML = "";
+      delete document.getElementById("quicknote-preview").dataset.audioUrl;
     }
 
     // ========== 📝 随手记 ==========
