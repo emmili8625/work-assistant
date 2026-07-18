@@ -326,7 +326,7 @@
   <!-- ==================== 左侧导航 ==================== -->
   <nav class="sidebar" id="sidebar">
     <div class="sidebar-logo">
-      <h2>📋 工作助手 <span style="font-size:10px;color:#666;">v33</span></h2>
+      <h2>📋 工作助手 <span style="font-size:10px;color:#666;">v34</span></h2>
       <span>珠海科技学院</span>
     </div>
 
@@ -1894,6 +1894,8 @@
     function deleteResource(i) { const r = getResources(); r.splice(i, 1); saveResources(r); renderResources(); }
 
     // ========== 🎤 录音机（边说边转文字）==========
+    let pendingImages = [];
+    let editingQuickNoteIdx = -1;
     let mediaRecorder = null;
     let audioChunks = [];
     let speechRecognition = null;
