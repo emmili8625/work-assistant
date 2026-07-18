@@ -2161,6 +2161,7 @@
     }
 
     function addQuickNote() {
+      try {
       const titleEl = document.getElementById("quicknote-title");
       const input = document.getElementById("quicknote-input");
       let title = titleEl.value.trim();
@@ -2198,6 +2199,10 @@
       pendingImages = [];
       document.getElementById("quicknote-preview").innerHTML = "";
       renderQuickNotes();
+      } catch(e) {
+        alert("保存失败: " + e.message);
+        console.error(e);
+      }
     }
 
     function deleteQuickNote(i) {
