@@ -2056,6 +2056,10 @@
     }
 
 
+    function getQuickNotes() {
+      const raw = localStorage.getItem("work-assistant-quicknotes");
+      return raw ? JSON.parse(raw) : [];
+    }
     function saveQuickNotes(d) { persist("work-assistant-quicknotes", d); }
 
     // 处理图片粘贴
