@@ -1893,146 +1893,113 @@
 
     function deleteResource(i) { const r = getResources(); r.splice(i, 1); saveResources(r); renderResources(); }
 
-    // ========== 🎤 录音机（边说边转文字）==========
+    // ========== 🎤 录音机（腾讯云语音识别·Worker代理）==========
     let pendingImages = [];
     let editingQuickNoteIdx = -1;
     let mediaRecorder = null;
     let audioChunks = [];
-    let speechRecognition = null;
-    let recorderState = "idle"; // idle | recording | paused
+    let recorderState = "idle";
     let recordingStartTime = 0;
     let recordingTimer = null;
-    let recRestartTimer = null;
-    let finalText = "";
-    let currentRec = null;
 
-    function makeRecognition() {
-      const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
-      if (!SR) return null;
-      const r = new SR();
-      r.lang = "zh-CN";
-      r.interimResults = true;
-      r.continuous = true;
-      return r;
-    }
+    async function transcribeWithTencent(audioBlob) {
+      try {
+        const audioCtx = new (window.AudioContext || window.webkitAudioContext)({sampleRate:16000});
+        const arrayBuf = await audioBlob.arrayBuffer();
+        const audioBuf = await audioCtx.decodeAudioData(arrayBuf);
+        const pcmData = audioBuf.getChannelData(0);
+        const ratio = audioBuf.sampleRate / 16000;
+        const len = Math.floor(pcmData.length / ratio);
+        const int16 = new Int16Array(len);
+        for (let i = 0; i < len; i++) {
+          int16[i] = Math.max(-32768, Math.min(32767, Math.round(pcmData[Math.floor(i*ratio)] * 32767)));
+        }
+        const wav = new ArrayBuffer(44 + int16.length*2);
+        const v = new DataView(wav);
+        const ws = (o,s) => { for(let i=0;i<s.length;i++) v.setUint8(o+i,s.charCodeAt(i)); };
+        ws(0,"RIFF"); v.setUint32(4,36+int16.length*2,true); ws(8,"WAVE");
+        ws(12,"fmt "); v.setUint32(16,16,true); v.setUint16(20,1,true);
+        v.setUint16(22,1,true); v.setUint32(24,16000,true); v.setUint32(28,32000,true);
+        v.setUint16(32,2,true); v.setUint16(34,16,true);
+        ws(36,"data"); v.setUint32(40,int16.length*2,true);
+        new Uint8Array(wav).set(new Uint8Array(int16.buffer), 44);
+        const wavBase64 = btoa(String.fromCharCode(...new Uint8Array(wav)));
+        audioCtx.close();
 
-    function bindRecognition(r) {
-      r.onresult = (e) => {
-        let interim = "";
-        for (let i = e.resultIndex; i < e.results.length; i++) {
-          if (e.results[i].isFinal) finalText += e.results[i][0].transcript;
-          else interim += e.results[i][0].transcript;
-        }
-        const input = document.getElementById("quicknote-input");
-        const base = input.dataset.recBase || input.value;
-        if (!input.dataset.recBase) input.dataset.recBase = base;
-        input.value = base + (base ? "\n" : "") + finalText + (interim ? " ·" + interim + "·" : "");
-        const titleEl = document.getElementById("quicknote-title");
-        if (!titleEl.value.trim() && finalText) {
-          titleEl.value = finalText.replace(/\s+/g, " ").slice(0, 20);
-        }
-        const statusEl = document.getElementById("mic-status");
-        if (statusEl && finalText) {
-          const elapsed = Math.floor((Date.now() - recordingStartTime) / 1000);
-          statusEl.textContent = "🔴 录音中 " + Math.floor(elapsed/60) + ":" + String(elapsed%60).padStart(2,"0") + " | 已识别 " + finalText.length + " 字";
-        }
-      };
-      r.onerror = (e) => {
-        if (e.error === "no-speech" || e.error === "aborted") return;
-      };
-      r.onend = () => {
-        if (recorderState === "recording") {
-          const next = makeRecognition();
-          if (next) {
-            currentRec = next;
-            bindRecognition(next);
-            try { next.start(); } catch(e) {}
-          }
-        }
-      };
-    }
-
-    function getSpeechRec() {
-      if (!speechRecognition) {
-        const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
-        if (SR) {
-          speechRecognition = new SR();
-          speechRecognition.lang = "zh-CN";
-          speechRecognition.interimResults = true;
-          speechRecognition.continuous = true;
-        }
+        const res = await fetch("https://asr-proxy.emmili8625.workers.dev/", {
+          method:"POST",
+          headers: {"Content-Type":"application/json"},
+          body: JSON.stringify({ audio: wavBase64, format: "wav" })
+        });
+        const result = await res.json();
+        if (result.Response && result.Response.Result) return result.Response.Result;
+        if (result.Response && result.Response.Error) return "识别失败: " + result.Response.Error.Message;
+        return "识别失败";
+      } catch(e) {
+        return "识别出错: " + e.message;
       }
-      return speechRecognition;
     }
 
     async function toggleRecorder() {
-      if (recorderState === "recording") { pauseRecording(); }
-      else if (recorderState === "paused") { resumeRecording(); }
+      if (recorderState === "recording") { stopRecording(); }
       else { await startRecording(); }
     }
 
     async function startRecording() {
-      const rec = makeRecognition();
-      if (!rec) { alert("浏览器不支持语音识别，请用 Chrome。"); return; }
       try {
         const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-        mediaRecorder = new MediaRecorder(stream, { mimeType: "audio/webm" });
+        mediaRecorder = new MediaRecorder(stream);
         audioChunks = [];
         recordingStartTime = Date.now();
-
         mediaRecorder.ondataavailable = e => { if (e.data.size > 0) audioChunks.push(e.data); };
-        mediaRecorder.onstop = () => {
+        mediaRecorder.onstop = async () => {
           stream.getTracks().forEach(t => t.stop());
           clearInterval(recordingTimer);
+          const statusEl = document.getElementById("mic-status");
+          if (statusEl) statusEl.textContent = "🔄 正在识别...";
+          const blob = new Blob(audioChunks);
+          const audioURL = URL.createObjectURL(blob);
+          pendingImages.push(audioURL);
+          const transcript = await transcribeWithTencent(blob);
+          const input = document.getElementById("quicknote-input");
+          input.value = input.value ? input.value + "\n" + transcript : transcript;
+          const titleEl = document.getElementById("quicknote-title");
+          if (!titleEl.value.trim()) titleEl.value = transcript.replace(/\s+/g," ").slice(0,20);
           saveRecordingAudio();
         };
-
-        // 同时语音识别——每次结束后新建实例，避免Chrome复用报错
-        finalText = "";
-        currentRec = rec;
-        bindRecognition(rec);
-        rec.start();
+        mediaRecorder.start();
         recorderState = "recording";
         updateRecorderUI();
         recordingTimer = setInterval(updateRecorderUI, 1000);
-      } catch (e) {
+      } catch(e) {
         alert("无法访问麦克风：" + e.message);
-      }
-    }
-
-    function pauseRecording() {
-      if (mediaRecorder && recorderState === "recording") {
-        mediaRecorder.pause();
-        clearTimeout(recRestartTimer);
-        try { currentRec && currentRec.stop(); } catch(e) {}
-        recorderState = "paused";
-        clearInterval(recordingTimer);
-        updateRecorderUI();
-      }
-    }
-
-    function resumeRecording() {
-      if (mediaRecorder && recorderState === "paused") {
-        mediaRecorder.resume();
-        recordingStartTime = Date.now();
-        const r = makeRecognition();
-        if (r) { currentRec = r; bindRecognition(r); try { r.start(); } catch(e) {} }
-        recorderState = "recording";
-        recordingTimer = setInterval(updateRecorderUI, 1000);
-        updateRecorderUI();
       }
     }
 
     function stopRecording() {
       if (mediaRecorder && recorderState !== "idle") {
-        try { currentRec && currentRec.stop(); } catch(e) {}
-        clearTimeout(recRestartTimer);
         mediaRecorder.stop();
         recorderState = "idle";
         clearInterval(recordingTimer);
         updateRecorderUI();
-        const input = document.getElementById("quicknote-input");
-        delete input.dataset.recBase;
+      }
+    }
+
+    function updateRecorderUI() {
+      const micBtn = document.getElementById("quicknote-mic-btn");
+      const status = document.getElementById("mic-status");
+      const stopBtn = document.getElementById("quicknote-stop-btn");
+
+      if (recorderState === "idle") {
+        micBtn.style.display = "inline-flex"; micBtn.style.background = "";
+        status.style.display = "none";
+        if (stopBtn) stopBtn.style.display = "none";
+      } else if (recorderState === "recording") {
+        micBtn.style.display = "none";
+        const elapsed = Math.floor((Date.now() - recordingStartTime) / 1000);
+        status.textContent = "🔴 录音中 " + Math.floor(elapsed/60) + ":" + String(elapsed%60).padStart(2,"0");
+        status.style.display = "inline";
+        if (stopBtn) stopBtn.style.display = "inline-flex";
       }
     }
 
