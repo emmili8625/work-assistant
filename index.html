@@ -326,7 +326,7 @@
   <!-- ==================== 左侧导航 ==================== -->
   <nav class="sidebar" id="sidebar">
     <div class="sidebar-logo">
-      <h2>📋 工作助手 <span style="font-size:10px;color:#666;">v35</span></h2>
+      <h2>📋 工作助手 <span style="font-size:10px;color:#666;">v36</span></h2>
       <span>珠海科技学院</span>
     </div>
 
@@ -369,6 +369,16 @@
     <section class="page active" id="page-dashboard">
       <h1 class="page-title">🏠 首页仪表盘</h1>
       <p class="page-subtitle" id="today-date">加载中…</p>
+
+      <!-- 每日提醒 -->
+      <div class="card" style="border-left:4px solid var(--accent);" id="daily-reminder-card">
+        <h3>📋 今日事项 <span id="daily-task-count" style="font-weight:400;color:var(--text-light);font-size:13px;"></span></h3>
+        <div id="daily-task-summary" style="font-size:13px;color:var(--text-light);">加载中…</div>
+        <div style="margin-top:8px;display:flex;align-items:center;gap:8px;">
+          <button class="btn small" id="reminder-btn" onclick="toggleReminder()">🔔 开启提醒</button>
+          <span style="font-size:11px;color:var(--text-light);" id="reminder-status"></span>
+        </div>
+      </div>
 
       <!-- 全局搜索 -->
       <div class="card" style="padding:12px 16px;">
@@ -906,6 +916,8 @@
       renderResources();
       renderQuickNotes();
       renderNotes();
+      updateDailySummary();
+      initReminder();
       renderArchiveList();
 
       // 工作存档默认日期设为今天
@@ -1892,6 +1904,81 @@
     }
 
     function deleteResource(i) { const r = getResources(); r.splice(i, 1); saveResources(r); renderResources(); }
+
+    // ========== 📋 每日提醒 ==========
+    let reminderInterval = null;
+
+    function updateDailySummary() {
+      const today = new Date().toISOString().split("T")[0];
+      const events = getCalEvents();
+      const todayEvents = events[today] || [];
+      const todos = getTodos().filter(t => !t.done);
+      const studyTodos = getStudyTodos().filter(t => !t.done);
+
+      const allItems = [
+        ...todayEvents.map(e => ({ text: e.text, source: "日历" })),
+        ...todos.map(e => ({ text: e.text, source: "待办" })),
+        ...studyTodos.map(e => ({ text: e.text, source: "学习" }))
+      ];
+
+      const container = document.getElementById("daily-task-summary");
+      const countEl = document.getElementById("daily-task-count");
+      if (countEl) countEl.textContent = "· " + allItems.length + " 项待完成";
+
+      if (!container) return;
+      if (allItems.length === 0) {
+        container.innerHTML = "<p>今天没有待办事项 🎉</p>";
+      } else {
+        container.innerHTML = allItems.map((t,i) =>
+          '<div style=\"padding:3px 0;border-bottom:1px solid #e5e7eb;display:flex;align-items:center;gap:6px;\">' +
+          '<span style=\"font-size:10px;color:#2563eb;min-width:32px;\">' + t.source + '</span>' +
+          '<span>' + t.text + '</span></div>'
+        ).join("");
+      }
+
+      const reminderOn = localStorage.getItem("work-assistant-reminder") === "on";
+      if (reminderOn && allItems.length > 0) tryNotify(allItems);
+    }
+
+    function toggleReminder() {
+      const isOn = localStorage.getItem("work-assistant-reminder") === "on";
+      if (isOn) {
+        localStorage.setItem("work-assistant-reminder", "off");
+        if (reminderInterval) { clearInterval(reminderInterval); reminderInterval = null; }
+        document.getElementById("reminder-btn").textContent = "🔔 开启提醒";
+        document.getElementById("reminder-status").textContent = "";
+      } else {
+        if (!("Notification" in window)) { alert("浏览器不支持通知"); return; }
+        Notification.requestPermission().then(perm => {
+          if (perm === "granted") {
+            localStorage.setItem("work-assistant-reminder", "on");
+            document.getElementById("reminder-btn").textContent = "🔕 关闭提醒";
+            document.getElementById("reminder-status").textContent = "已开启 · 每2小时检查";
+            reminderInterval = setInterval(updateDailySummary, 2*60*60*1000);
+            updateDailySummary();
+          } else {
+            alert("需要允许通知权限才能使用提醒功能");
+          }
+        });
+      }
+    }
+
+    function tryNotify(items) {
+      try {
+        const text = items.slice(0,3).map(t => "· "+t.text).join("\n");
+        const more = items.length > 3 ? "\n还有"+(items.length-3)+"项…" : "";
+        new Notification("📋 今日待办 ("+items.length+"项)", { body: text+more, icon: "📋" });
+      } catch(e) {}
+    }
+
+    function initReminder() {
+      const isOn = localStorage.getItem("work-assistant-reminder") === "on";
+      if (isOn) {
+        document.getElementById("reminder-btn").textContent = "🔕 关闭提醒";
+        document.getElementById("reminder-status").textContent = "已开启 · 每2小时检查";
+        reminderInterval = setInterval(updateDailySummary, 2*60*60*1000);
+      }
+    }
 
     // ========== 🎤 录音机（腾讯云语音识别·Worker代理）==========
     let pendingImages = [];
